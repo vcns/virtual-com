@@ -1,0 +1,7 @@
+virtual-com
+Copyright (c) 2026 VCNS Tech Ltd
+
+Portions of the driver (driver/internal.h, driver/device.c, driver/comport.c and driver/vcom.inx) are adapted
+from the VirtualSerial2 sample in Microsoft's Windows-driver-samples repository
+(https://github.com/microsoft/Windows-driver-samples), Copyright (c) Microsoft Corporation, licensed under the
+Microsoft Public License (MS-PL). This project is distributed under the same license; see LICENSE.
