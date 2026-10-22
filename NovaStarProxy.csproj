@@ -1,0 +1,44 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <RootNamespace>NovaStarProxy</RootNamespace>
+    <AssemblyName>NovaStarProxy</AssemblyName>
+    <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
+    <ApplicationIcon>Assets\NovaStarProxy.ico</ApplicationIcon>
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+
+    <Version>1.0.0</Version>
+    <Product>NovaStar Proxy</Product>
+    <Description>Virtual COM-to-TCP bridge for NovaStar controllers</Description>
+    <Company>VCNS Tech Ltd</Company>
+    <Copyright>Copyright © 2026 VCNS Tech Ltd</Copyright>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="NovaStarProxy.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\external\virtual-com\src\Vcns.VirtualCom\Vcns.VirtualCom.csproj" />
+  </ItemGroup>
+
+  <!--
+    The VCNS virtual COM driver package is embedded when a signed build of it is available, so the application can
+    install the driver itself. Point VirtualComPackageDir at a signed package (vcnsvcom.inf, .dll, .cat); by default
+    it is the submodule's own build output. Without it, ports can still be created with com0com.
+  -->
+  <PropertyGroup>
+    <VirtualComPackageDir Condition="'$(VirtualComPackageDir)' == ''">$(MSBuildThisFileDirectory)..\..\external\virtual-com\out\Release\package\</VirtualComPackageDir>
+  </PropertyGroup>
+  <ItemGroup Condition="Exists('$(VirtualComPackageDir)vcnsvcom.cat')">
+    <EmbeddedResource Include="$(VirtualComPackageDir)vcnsvcom.inf;$(VirtualComPackageDir)vcnsvcom.dll;$(VirtualComPackageDir)vcnsvcom.cat"
+                      LogicalName="VirtualComDriver/%(Filename)%(Extension)" />
+  </ItemGroup>
+
+</Project>
