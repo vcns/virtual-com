@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{5C1E8D2B-7A43-4F6E-9B0D-3E2A8C4F1B76}</ProjectGuid>
+    <RootNamespace>vcnsvcom</RootNamespace>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <PlatformToolset>v143</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+    <SpectreMitigation>Spectre</SpectreMitigation>
+    <TargetName>vcnsvcom</TargetName>
+    <UseDebugLibraries Condition="'$(Configuration)' == 'Debug'">true</UseDebugLibraries>
+    <UseDebugLibraries Condition="'$(Configuration)' == 'Release'">false</UseDebugLibraries>
+    <WholeProgramOptimization Condition="'$(Configuration)' == 'Release'">true</WholeProgramOptimization>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <Import Project="..\build\Umdf.props" />
+  <PropertyGroup>
+    <OutDir>$(MSBuildThisFileDirectory)..\out\$(Configuration)\</OutDir>
+    <IntDir>$(MSBuildThisFileDirectory)..\obj\$(Configuration)\</IntDir>
+    <DriverVersion Condition="'$(DriverVersion)' == ''">0.1.0.0</DriverVersion>
+    <PackageDir>$(OutDir)package\</PackageDir>
+  </PropertyGroup>
+  <ItemDefinitionGroup>
+    <ClCompile>
+      <CompileAs>CompileAsC</CompileAs>
+      <WarningLevel>Level4</WarningLevel>
+      <TreatWarningAsError>true</TreatWarningAsError>
+      <SDLCheck>true</SDLCheck>
+      <AdditionalIncludeDirectories>$(MSBuildThisFileDirectory)..\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <!-- Static runtime: the driver must not depend on a Visual C++ redistributable being installed. -->
+      <RuntimeLibrary Condition="'$(Configuration)' == 'Debug'">MultiThreadedDebug</RuntimeLibrary>
+      <RuntimeLibrary Condition="'$(Configuration)' == 'Release'">MultiThreaded</RuntimeLibrary>
+      <PreprocessorDefinitions Condition="'$(Configuration)' == 'Debug'">DBG=1;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <Link>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <CETCompat>true</CETCompat>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClCompile Include="driver.c" />
+    <ClCompile Include="guids.c" />
+    <ClCompile Include="device.c" />
+    <ClCompile Include="io.c" />
+    <ClCompile Include="comport.c" />
+    <ClCompile Include="host.c" />
+    <ClCompile Include="ringbuffer.c" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="internal.h" />
+    <ClInclude Include="ringbuffer.h" />
+    <ClInclude Include="..\include\vcom.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="vcom.rc" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="vcom.inx" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+
+  <!-- Driver package: the DLL, the INF stamped with date/version/UMDF version, and an (unsigned) catalog. -->
+  <Target Name="PackageDriver" AfterTargets="Build">
+    <MakeDir Directories="$(PackageDir)" />
+    <Copy SourceFiles="$(OutDir)vcnsvcom.dll" DestinationFolder="$(PackageDir)" />
+    <Copy SourceFiles="vcom.inx" DestinationFiles="$(PackageDir)vcnsvcom.inf" />
+    <Exec Command="&quot;$(WdkBin)x64\stampinf.exe&quot; -f &quot;$(PackageDir)vcnsvcom.inf&quot; -d * -v $(DriverVersion) -a amd64 -u $(UmdfVersion).0" />
+    <Delete Files="$(PackageDir)vcnsvcom.cat" />
+    <Exec Command="&quot;$(WdkBin)x86\Inf2Cat.exe&quot; /driver:&quot;$(PackageDir.TrimEnd('\'))&quot; /os:10_RS5_X64 /uselocaltime" />
+  </Target>
+</Project>

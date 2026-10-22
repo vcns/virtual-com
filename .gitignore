@@ -1,0 +1,8 @@
+packages/
+out/
+obj/
+bin/
+TestResults/
+*.user
+.vs/
+.vscode/

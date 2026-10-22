@@ -1,0 +1,107 @@
+; SPDX-License-Identifier: MS-PL
+; Copyright (c) 2026 VCNS Tech Ltd
+; Portions Copyright (c) Microsoft Corporation
+;
+; Virtual COM port (UMDF 2 user-mode driver).
+;
+; Each device created with hardware ID Root\VcnsVirtualCom becomes one COM port. The Ports class installer
+; assigns its name (PortName); the management tool sets the name before installation to choose the number.
+;
+; Install sections adapted from Microsoft's VirtualSerial2 sample (Windows-driver-samples, MS-PL).
+;
+
+[Version]
+Signature   = "$Windows NT$"
+Class       = Ports
+ClassGuid   = {4D36E978-E325-11CE-BFC1-08002BE10318}
+Provider    = %ProviderName%
+CatalogFile = vcnsvcom.cat
+DriverVer   = 01/01/2026,0.1.0.0
+PnpLockdown = 1
+
+[Manufacturer]
+%ManufacturerName% = VcnsVcom, NT$ARCH$.10.0...17763, NT$ARCH$.10.0...22000
+
+; Windows 10 1809 and later
+[VcnsVcom.NT$ARCH$.10.0...17763]
+%DeviceDescription% = VcnsVcom_Install, Root\VcnsVirtualCom
+
+; Windows 11 and later, which provide WUDFRD.inf
+[VcnsVcom.NT$ARCH$.10.0...22000]
+%DeviceDescription% = VcnsVcom_Install_Win11, Root\VcnsVirtualCom
+
+[SourceDisksNames]
+1 = %DiskName%
+
+[SourceDisksFiles]
+vcnsvcom.dll = 1
+
+[DestinationDirs]
+DefaultDestDir = 13
+
+[UMDriverCopy]
+vcnsvcom.dll
+
+; ---- Windows 11 ----
+
+[VcnsVcom_Install_Win11.NT]
+CopyFiles = UMDriverCopy
+Include   = WUDFRD.inf
+Needs     = WUDFRD.NT
+
+[VcnsVcom_Install_Win11.NT.hw]
+AddReg  = VcnsVcom_DeviceType
+Include = WUDFRD.inf
+Needs   = WUDFRD.NT.HW
+
+[VcnsVcom_Install_Win11.NT.Services]
+Include = WUDFRD.inf
+Needs   = WUDFRD.NT.Services
+
+[VcnsVcom_Install_Win11.NT.Wdf]
+UmdfService                = VcnsVcom, VcnsVcom_UmdfInstall
+UmdfServiceOrder           = VcnsVcom
+UmdfKernelModeClientPolicy = AllowKernelModeClients
+UmdfFileObjectPolicy       = AllowNullAndUnknownFileObjects
+UmdfFsContextUsePolicy     = CannotUseFsContexts
+
+; ---- Windows 10 ----
+
+[VcnsVcom_Install.NT]
+CopyFiles = UMDriverCopy
+
+[VcnsVcom_Install.NT.hw]
+AddReg = VcnsVcom_DeviceType
+
+[VcnsVcom_Install.NT.Services]
+AddService = WUDFRd, 0x000001fa, WUDFRD_ServiceInstall
+
+[VcnsVcom_Install.NT.Wdf]
+UmdfService                = VcnsVcom, VcnsVcom_UmdfInstall
+UmdfServiceOrder           = VcnsVcom
+UmdfKernelModeClientPolicy = AllowKernelModeClients
+UmdfFileObjectPolicy       = AllowNullAndUnknownFileObjects
+UmdfFsContextUsePolicy     = CannotUseFsContexts
+
+[WUDFRD_ServiceInstall]
+DisplayName   = %WudfRdDisplayName%
+ServiceType   = 1
+StartType     = 3
+ErrorControl  = 1
+ServiceBinary = %12%\WUDFRd.sys
+
+; ---- Shared ----
+
+[VcnsVcom_UmdfInstall]
+UmdfLibraryVersion = $UMDFVERSION$
+ServiceBinary      = %13%\vcnsvcom.dll
+
+[VcnsVcom_DeviceType]
+HKR,,DeviceType,0x10001,0x0000001b  ; FILE_DEVICE_SERIAL_PORT
+
+[Strings]
+ProviderName      = "VCNS Tech Ltd"
+ManufacturerName  = "VCNS Tech Ltd"
+DeviceDescription = "VCNS Virtual COM Port"
+DiskName          = "VCNS Virtual COM Port Installation Media"
+WudfRdDisplayName = "Windows Driver Foundation - User-mode Driver Framework Reflector"

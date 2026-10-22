@@ -1,0 +1,16 @@
+<Project>
+  <!--
+    The Windows SDK and WDK come from NuGet (see packages.config), so builds don't depend on whatever kits are
+    installed on the machine. Restore with:  nuget restore packages.config -PackagesDirectory packages
+  -->
+  <PropertyGroup>
+    <WdkNuGetVersion>10.0.28000.2526</WdkNuGetVersion>
+    <WdkSdkVersion>10.0.28000.0</WdkSdkVersion>
+    <KitPackages>$(MSBuildThisFileDirectory)packages\</KitPackages>
+    <SdkRoot>$(KitPackages)Microsoft.Windows.SDK.CPP.$(WdkNuGetVersion)\c\</SdkRoot>
+    <SdkLibRoot>$(KitPackages)Microsoft.Windows.SDK.CPP.x64.$(WdkNuGetVersion)\c\</SdkLibRoot>
+    <WdkRoot>$(KitPackages)Microsoft.Windows.WDK.x64.$(WdkNuGetVersion)\c\</WdkRoot>
+    <SdkBin>$(SdkRoot)bin\$(WdkSdkVersion)\x64\</SdkBin>
+    <WdkBin>$(WdkRoot)bin\$(WdkSdkVersion)\</WdkBin>
+  </PropertyGroup>
+</Project>

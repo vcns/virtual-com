@@ -1,0 +1,32 @@
+<Project>
+  <!--
+    Builds a UMDF 2 driver DLL with the ordinary v143 C++ toolset. A user-mode driver is a plain DLL linked against
+    the WDF stub library, so the WDK's Visual Studio integration (which Build Tools doesn't support) isn't needed.
+    Import after Microsoft.Cpp.props.
+
+    UMDF 2.25 is the version in Windows 10 1809, the oldest release we support.
+  -->
+  <PropertyGroup>
+    <UmdfVersionMajor>2</UmdfVersionMajor>
+    <UmdfVersionMinor>25</UmdfVersionMinor>
+    <UmdfVersion>$(UmdfVersionMajor).$(UmdfVersionMinor)</UmdfVersion>
+    <IncludePath>$(VC_IncludePath);$(SdkRoot)Include\$(WdkSdkVersion)\ucrt;$(SdkRoot)Include\$(WdkSdkVersion)\um;$(SdkRoot)Include\$(WdkSdkVersion)\shared;$(WdkRoot)Include\wdf\umdf\$(UmdfVersion)</IncludePath>
+    <LibraryPath>$(VC_LibraryPath_x64);$(SdkLibRoot)um\x64;$(SdkLibRoot)ucrt\x64;$(WdkRoot)Lib\wdf\umdf\x64\$(UmdfVersion)</LibraryPath>
+    <ExecutablePath>$(SdkBin);$(ExecutablePath)</ExecutablePath>
+  </PropertyGroup>
+  <ItemDefinitionGroup>
+    <ClCompile>
+      <!-- The same defines the WDK's own user-mode driver build applies (NTDDI 0x0A000006 = Windows 10 1809). -->
+      <PreprocessorDefinitions>UMDF_VERSION_MAJOR=$(UmdfVersionMajor);UMDF_VERSION_MINOR=$(UmdfVersionMinor);_WIN32_WINNT=0x0A00;WINVER=0x0A00;NTDDI_VERSION=0x0A000006;WINNT=1;WIN32_LEAN_AND_MEAN=1;DEPRECATE_DDK_FUNCTIONS=1;_WIN64;_AMD64_;AMD64;UNICODE;_UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ControlFlowGuard>Guard</ControlFlowGuard>
+      <BufferSecurityCheck>true</BufferSecurityCheck>
+    </ClCompile>
+    <ResourceCompile>
+      <AdditionalIncludeDirectories>$(SdkRoot)Include\$(WdkSdkVersion)\um;$(SdkRoot)Include\$(WdkSdkVersion)\shared;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ResourceCompile>
+    <Link>
+      <AdditionalDependencies>WdfDriverStubUm.lib;ntdll.lib;mincore.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <SubSystem>Windows</SubSystem>
+    </Link>
+  </ItemDefinitionGroup>
+</Project>

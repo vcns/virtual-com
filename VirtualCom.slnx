@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Vcns.VirtualCom/Vcns.VirtualCom.csproj" />
+    <Project Path="src/vcomctl/vcomctl.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Vcns.VirtualCom.Tests/Vcns.VirtualCom.Tests.csproj" />
+  </Folder>
+</Solution>
