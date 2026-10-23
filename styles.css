@@ -791,3 +791,68 @@ main {
     grid-template-columns: minmax(0, 1fr);
   }
 }
+/* Mock-ups of the application's windows (bridge app page). */
+.window-mock {
+  margin: 0 0 1.5rem;
+  background: #ffffff;
+  border: 1px solid #a0a0a0;
+  box-shadow: var(--shadow);
+  font-family: 'Segoe UI', Calibri, Helvetica, Arial, sans-serif;
+  font-size: 0.85rem;
+}
+
+.window-mock .titlebar {
+  padding: 0.45rem 0.75rem;
+  color: #222222;
+  background: #f3f3f3;
+  border-bottom: 1px solid #d0d0d0;
+  font-weight: 600;
+}
+
+.window-mock .body {
+  padding: 0.75rem;
+  overflow-x: auto;
+}
+
+.window-mock p {
+  margin: 0 0 0.5rem;
+  font-size: 0.85rem;
+}
+
+.window-mock table {
+  min-width: 720px;
+  margin-bottom: 0.75rem;
+  border-color: #b0b0b0;
+  font-size: 0.82rem;
+}
+
+.window-mock th,
+.window-mock td {
+  padding: 0.35rem 0.5rem;
+  border-color: #c8c8c8;
+  font-size: 0.82rem;
+}
+
+.window-mock th {
+  background: #f3f3f3;
+  font-family: 'Segoe UI', Calibri, Helvetica, Arial, sans-serif;
+}
+
+.window-mock .muted {
+  color: #6b6b6b;
+}
+
+.window-mock .buttons span {
+  display: inline-block;
+  margin: 0 0.4rem 0.4rem 0;
+  padding: 0.25rem 0.8rem;
+  background: #fdfdfd;
+  border: 1px solid #adadad;
+}
+
+.menu-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: flex-start;
+}

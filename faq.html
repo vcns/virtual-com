@@ -36,6 +36,7 @@
             <li><a href='index.html'>Home</a></li>
             <li><a href='use-cases.html'>Use cases</a></li>
             <li><a href='user-guide.html'>User guide</a></li>
+            <li><a href='bridge.html'>Bridge app</a></li>
             <li><a href='developer-guide.html'>Developer guide</a></li>
             <li><a href='reference.html'>Serial reference</a></li>
             <li><a href='building.html'>Build &amp; sign</a></li>
@@ -48,6 +49,7 @@
           <ul>
             <li><a href='#general'>General</a></li>
             <li><a href='#using'>Using ports</a></li>
+            <li><a href='#bridge'>The bridge app</a></li>
             <li><a href='#install'>Installation and signing</a></li>
             <li><a href='#development'>Development</a></li>
           </ul>
@@ -125,6 +127,37 @@
           </div>
         </section>
 
+        <section id='bridge' class='section'>
+          <p class='section-label'>Bridge app</p>
+          <h2>The bridge app.</h2>
+          <div class='faq-list'>
+            <article class='faq-item'>
+              <h3>What is the VCNS Virtual COM Bridge?</h3>
+              <p>A tray application, included in the repository, that gives serial software a COM port leading to a device's TCP port. You add a profile for each device and start it from the tray when you need it. See the <a href='bridge.html'>bridge page</a>.</p>
+            </article>
+            <article class='faq-item'>
+              <h3>How does NovaStar Proxy relate to it?</h3>
+              <p>NovaStar Proxy is an edition of the bridge for NovaStar LED controllers: the same application with NovaLCT wording, port 5200 as the default, and a reminder to pause Zabbix polling before connecting. Improvements to the bridge reach every edition.</p>
+            </article>
+            <article class='faq-item'>
+              <h3>Will it reconnect if the link drops?</h3>
+              <p>No, by design. Many such devices accept one session at a time, and an automatic reconnect could take that session from a monitoring system or a colleague without anyone choosing to. The bridge tells you the link dropped; you start it again when it suits.</p>
+            </article>
+            <article class='faq-item'>
+              <h3>What does "Port in use" mean?</h3>
+              <p>The device accepted the connection and closed it straight away, or before sending anything. That's how single-session devices turn away a second client. Something else holds the session; stop or pause it and start again.</p>
+            </article>
+            <article class='faq-item'>
+              <h3>Can it expose a real COM port on the network instead?</h3>
+              <p>Not yet. That's <a href='bridge.html#server-mode'>server mode</a>, which is planned: real COM ports, such as USB-attached devices, each listening on their own TCP port.</p>
+            </article>
+            <article class='faq-item'>
+              <h3>Can I make an edition for my own product?</h3>
+              <p>Yes. An edition is a small executable that passes its name, folders and wording to the shared application; the MS-PL licence allows it. See <a href='developer-guide.html#editions'>building a bridge edition</a>.</p>
+            </article>
+          </div>
+        </section>
+
         <section id='install' class='section'>
           <p class='section-label'>Installation and signing</p>
           <h2>Installing and trusting the driver.</h2>
@@ -178,7 +211,7 @@
             </article>
             <article class='faq-item'>
               <h3>Can I run the tests in CI?</h3>
-              <p>Yes. The repository's workflow installs the test-signed driver on GitHub's hosted Windows runners and runs the full suite against a real port. Copy it for your own projects.</p>
+              <p>Yes. A Windows build agent can trust a throwaway test certificate, install the test-signed driver and run tests against a real port. The repository's GitHub Actions workflow, being added shortly, does exactly that on GitHub's hosted Windows runners; see <a href='building.html#ci'>Continuous integration</a>.</p>
             </article>
           </div>
         </section>

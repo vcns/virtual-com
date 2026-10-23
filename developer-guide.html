@@ -37,6 +37,7 @@
             <li><a href='index.html'>Home</a></li>
             <li><a href='use-cases.html'>Use cases</a></li>
             <li><a href='user-guide.html'>User guide</a></li>
+            <li><a href='bridge.html'>Bridge app</a></li>
             <li><a href='developer-guide.html' aria-current='page'>Developer guide</a></li>
             <li><a href='reference.html'>Serial reference</a></li>
             <li><a href='building.html'>Build &amp; sign</a></li>
@@ -50,6 +51,7 @@
             <li><a href='#setup'>Adding the library</a></li>
             <li><a href='#echo'>Echo example</a></li>
             <li><a href='#bridge'>TCP bridge example</a></li>
+            <li><a href='#editions'>Bridge editions</a></li>
             <li><a href='#api'>.NET API</a></li>
             <li><a href='#behaviour'>Host-end behaviour</a></li>
             <li><a href='#admin'>Admin operations</a></li>
@@ -105,6 +107,33 @@ Console.WriteLine($"{state.PortName}: application open = {state.ComOpen}, {state
 
 await Task.WhenAny(port.Stream.CopyToAsync(network), network.CopyToAsync(port.Stream));</code></pre>
           <p class='section-note'>A production bridge also needs time-outs, keep-alives, clean shutdown and error reporting. Bytes are never split, merged or reordered, but one read can return any number of them, so don't assume one read is one message.</p>
+          <div class='callout'>
+            <h3>Or use the ready-made bridge</h3>
+            <p>The repository's <a href='bridge.html'>VCNS Virtual COM Bridge</a> does all of that already, with profiles, a tray menu, single-session protection and port creation. If it fits, use it as it is or as a branded edition (below) rather than writing your own.</p>
+          </div>
+        </section>
+
+        <section id='editions' class='section'>
+          <p class='section-label'>Bridge</p>
+          <h2>Building a bridge edition.</h2>
+          <p>The bridge is three projects. An edition adds a fourth: a small executable with its own name and wording.</p>
+          <div class='table-wrap'>
+            <table>
+              <thead><tr><th scope='col'>Project</th><th scope='col'>Contents</th></tr></thead>
+              <tbody>
+                <tr><td><code>src/Vcns.VirtualCom.Bridge</code></td><td>The engine: profiles and configuration, COM-to-TCP sessions, single-session locking, in-use detection, COM port inventory and allocation, the elevated port helper, and the embedded driver package. No user interface.</td></tr>
+                <tr><td><code>src/Vcns.VirtualCom.Desktop</code></td><td>The tray application, Settings window and dialogs. Its public entry point is <code>BridgeApp.Run(BridgeEdition, string[])</code>.</td></tr>
+                <tr><td><code>src/vcombridge</code></td><td>The generic edition, VCNS Virtual COM Bridge.</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p>A new edition is a Windows Forms executable that references <code>Vcns.VirtualCom.Desktop</code> and passes its <code>BridgeEdition</code> from an <code>[STAThread]</code> <code>Main</code>:</p>
+<pre><code>&lt;ItemGroup&gt;
+  &lt;ProjectReference Include="external\virtual-com\src\Vcns.VirtualCom.Desktop\Vcns.VirtualCom.Desktop.csproj" /&gt;
+&lt;/ItemGroup&gt;</code></pre>
+<pre><code>[STAThread]
+private static int Main(string[] args) => BridgeApp.Run(MyEdition.Instance, args);</code></pre>
+          <p>The same executable also acts as its own elevated helper for creating ports, so <code>Main</code> must pass <code>args</code> through unchanged. The edition's properties are listed on the <a href='bridge.html#editions'>bridge page</a>. NovaStar Proxy is built this way.</p>
         </section>
 
         <section id='api' class='section'>

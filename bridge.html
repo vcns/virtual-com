@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang='en-GB'>
+<head>
+  <meta charset='UTF-8'>
+  <meta name='viewport' content='width=device-width, initial-scale=1.0'>
+  <title>Bridge app · virtual-com</title>
+  <meta name='description' content='The VCNS Virtual COM Bridge gives serial software a COM port that leads to a device on a TCP port: profiles, on-demand connections, single-session protection, editions such as NovaStar Proxy, and planned server mode.'>
+  <link rel='icon' href='favicon.ico'>
+  <link rel='stylesheet' href='styles.css'>
+</head>
+<body>
+  <a class='skip-link' href='#main'>Skip to content</a>
+  <div class='page-shell'>
+    <header class='hero'>
+      <div class='hero-copy'>
+        <p class='eyebrow'>virtual-com · Bridge app</p>
+        <h1>A COM port that leads to the network.</h1>
+        <p class='lede'>The VCNS Virtual COM Bridge is a ready-made host for virtual-com ports. It gives serial software a COM port on this PC that leads to a device's TCP port, so vendor tools that only speak COM can manage networked devices unchanged.</p>
+        <div class='hero-actions'>
+          <a class='button primary' href='#setup'>Set it up</a>
+          <a class='button secondary' href='#editions'>Build an edition</a>
+        </div>
+      </div>
+      <aside class='hero-panel'>
+        <h2>At a glance</h2>
+        <ul>
+          <li>Tray application for Windows 10 1809+ and Windows 11, x64</li>
+          <li>One profile per device: a virtual COM port and a TCP endpoint</li>
+          <li>Connects only when you ask; never reconnects by itself</li>
+          <li>Protects devices that accept a single session</li>
+          <li>Bytes forwarded unchanged, as soon as they arrive</li>
+          <li>Administrator approval only to create or remove ports</li>
+          <li>Branded editions, such as NovaStar Proxy</li>
+        </ul>
+      </aside>
+    </header>
+
+    <div class='content-shell'>
+      <nav class='sidebar' aria-label='Documentation navigation'>
+        <div class='sidebar-group'>
+          <h3>Site</h3>
+          <ul>
+            <li><a href='index.html'>Home</a></li>
+            <li><a href='use-cases.html'>Use cases</a></li>
+            <li><a href='user-guide.html'>User guide</a></li>
+            <li><a href='bridge.html' aria-current='page'>Bridge app</a></li>
+            <li><a href='developer-guide.html'>Developer guide</a></li>
+            <li><a href='reference.html'>Serial reference</a></li>
+            <li><a href='building.html'>Build &amp; sign</a></li>
+            <li><a href='faq.html'>FAQ</a></li>
+            <li><a href='https://github.com/vcns/virtual-com'>Repository</a></li>
+          </ul>
+        </div>
+        <div class='sidebar-group'>
+          <h3>On this page</h3>
+          <ul>
+            <li><a href='#what'>What it does</a></li>
+            <li><a href='#setup'>Setting up</a></li>
+            <li><a href='#tray'>Tray menu</a></li>
+            <li><a href='#settings'>Settings reference</a></li>
+            <li><a href='#single-session'>Single-session safety</a></li>
+            <li><a href='#messages'>Connection messages</a></li>
+            <li><a href='#files'>Files and logs</a></li>
+            <li><a href='#editions'>Editions</a></li>
+            <li><a href='#server-mode'>Server mode (planned)</a></li>
+            <li><a href='#security'>Security</a></li>
+          </ul>
+        </div>
+      </nav>
+
+      <main id='main'>
+        <section id='what' class='section'>
+          <p class='section-label'>Overview</p>
+          <h2>What it does.</h2>
+          <p>Many devices now sit on a network but still speak their original serial protocol on a raw TCP port, while the software that configures them still expects a COM port. The bridge creates a virtual COM port for each device and, when you start it, connects that port to the device's TCP port.</p>
+          <figure class='diagram'>
+            <svg viewBox='0 0 960 190' role='img' aria-labelledby='bridge-title bridge-desc'>
+              <title id='bridge-title'>How the bridge connects a serial application to a networked device</title>
+              <desc id='bridge-desc'>A serial application opens COM9. The vcnsvcom driver passes the bytes to the bridge through the port's host end. The bridge forwards them over TCP to the device, and the replies come back the same way.</desc>
+              <defs>
+                <marker id='arrow' viewBox='0 0 10 10' refX='9' refY='5' markerWidth='7' markerHeight='7' orient='auto-start-reverse'>
+                  <path d='M0,0 L10,5 L0,10 z' fill='#373737'/>
+                </marker>
+              </defs>
+              <g font-family='Calibri, Helvetica, Arial, sans-serif' text-anchor='middle'>
+                <rect x='10' y='45' width='180' height='100' fill='#373737'/>
+                <text x='100' y='88' fill='#ffffff' font-size='17' font-weight='700'>Serial application</text>
+                <text x='100' y='112' fill='#d0d0d0' font-size='14'>vendor configuration tool</text>
+
+                <rect x='270' y='45' width='170' height='100' fill='#0f79d0'/>
+                <text x='355' y='88' fill='#ffffff' font-size='17' font-weight='700'>vcnsvcom</text>
+                <text x='355' y='112' fill='#ffffff' font-size='14'>virtual COM driver</text>
+
+                <rect x='520' y='45' width='190' height='100' fill='#0f79d0'/>
+                <text x='615' y='88' fill='#ffffff' font-size='17' font-weight='700'>Bridge</text>
+                <text x='615' y='112' fill='#ffffff' font-size='14'>tray app on this PC</text>
+
+                <rect x='790' y='45' width='160' height='100' fill='#373737'/>
+                <text x='870' y='88' fill='#ffffff' font-size='17' font-weight='700'>Device</text>
+                <text x='870' y='112' fill='#d0d0d0' font-size='14'>raw TCP port</text>
+
+                <line x1='194' y1='95' x2='266' y2='95' stroke='#373737' stroke-width='3' marker-start='url(#arrow)' marker-end='url(#arrow)'/>
+                <text x='230' y='82' fill='#222222' font-size='15' font-weight='700'>COM9</text>
+                <line x1='444' y1='95' x2='516' y2='95' stroke='#373737' stroke-width='3' marker-start='url(#arrow)' marker-end='url(#arrow)'/>
+                <text x='480' y='82' fill='#222222' font-size='14'>host end</text>
+                <line x1='714' y1='95' x2='786' y2='95' stroke='#373737' stroke-width='3' marker-start='url(#arrow)' marker-end='url(#arrow)'/>
+                <text x='750' y='82' fill='#222222' font-size='15' font-weight='700'>TCP</text>
+              </g>
+            </svg>
+            <figcaption>The application believes the device is plugged in locally. Nothing is decoded or changed on the way.</figcaption>
+          </figure>
+          <div class='card-grid'>
+            <article class='card'>
+              <h3>Profiles</h3>
+              <p>Each profile maps one virtual COM port to one TCP endpoint. Several devices get several ports, numbered above every COM port already used or reserved on the PC.</p>
+            </article>
+            <article class='card'>
+              <h3>On demand</h3>
+              <p>Nothing connects at start-up. You start a profile from the tray menu, and it stays connected until you disconnect it or the link fails. It never reconnects by itself.</p>
+            </article>
+            <article class='card'>
+              <h3>A real "cable"</h3>
+              <p>While a profile isn't connected, its port looks like a serial port with nothing plugged in. CTS, DSR and DCD rise only once the device has accepted the session.</p>
+            </article>
+          </div>
+        </section>
+
+        <section id='setup' class='section'>
+          <p class='section-label'>Getting started</p>
+          <h2>Setting up.</h2>
+          <div class='warning-callout'>
+            <h3>No published release yet</h3>
+            <p>Build the bridge from source as described in <a href='building.html#bridge'>Build &amp; sign</a>. Until production signing is in place, builds carry a test-signed driver, so first <a href='user-guide.html#test-certificate'>trust the test certificate</a> on the PC.</p>
+          </div>
+          <ol class='steps'>
+            <li>Copy <code>vcombridge.exe</code> to a folder such as <code>C:\Program Files\VCNS Virtual COM Bridge</code> and run it. A connector icon appears in the notification area; if it's hidden, click the <strong>^</strong> arrow by the clock.</li>
+            <li>Right-click the icon and choose <strong>Settings → GUI…</strong>, or double-click the icon. The line near the top should mention <strong>VCNS virtual COM (included)</strong>.</li>
+            <li>Choose <strong>Add</strong>. A row appears with a COM port already chosen. Type the device's address in <strong>Target Server</strong> and its TCP port in <strong>Target Port</strong>.</li>
+            <li>Choose <strong>Save</strong>. When asked <strong>"Create virtual port COM9?"</strong>, choose <strong>Create</strong> and approve the Windows prompt. The first time, this also installs the driver.</li>
+            <li>When the row says <strong>Virtual port ready</strong>, right-click the icon and choose <strong>Start → COM9 → address:port</strong>. The icon turns green when the device has accepted the session.</li>
+            <li>Open COM9 in your serial application and work as usual. Choose <strong>COM9 — Connected → Disconnect</strong> when you've finished.</li>
+          </ol>
+          <figure class='window-mock' aria-label='Mock-up of the Settings window'>
+            <div class='titlebar'>VCNS Virtual COM Bridge — Settings</div>
+            <div class='body'>
+              <p>Each row maps one local virtual COM port, which your serial application opens, to one device endpoint. Nothing connects until you start a profile from the tray menu (Start → COMx).</p>
+              <p class='muted'>Virtual port drivers: VCNS virtual COM (included), 2 port(s).</p>
+              <table>
+                <thead><tr><th>Enabled</th><th>Target Server</th><th>Target Port</th><th>Local COM Port</th><th>Virtual Port</th><th>Proxy-side Port</th></tr></thead>
+                <tbody>
+                  <tr><td>☑</td><td>192.168.20.15</td><td>4001</td><td>COM9 ▾</td><td class='muted'>Virtual port ready (VCNS virtual COM driver)</td><td></td></tr>
+                  <tr><td>☑</td><td>plc-line2.example.net</td><td>4001</td><td>COM10 ▾</td><td class='muted'>Virtual port ready (VCNS virtual COM driver)</td><td></td></tr>
+                </tbody>
+              </table>
+              <div class='buttons'><span>Add</span><span>Remove</span><span>Create missing virtual ports…</span></div>
+              <p class='muted'>Connection options: connect timeout, release interval, in-use detection window, hex logging · <span>Save</span> <span>Close</span></p>
+            </div>
+          </figure>
+          <p class='section-note'>Illustrative values. Starting the program a second time opens the running copy's Settings window.</p>
+        </section>
+
+        <section id='tray' class='section'>
+          <p class='section-label'>Reference</p>
+          <h2>The tray menu.</h2>
+          <div class='table-wrap'>
+            <table>
+              <thead><tr><th scope='col'>Item</th><th scope='col'>What it does</th></tr></thead>
+              <tbody>
+                <tr><td><strong>Settings → GUI…</strong></td><td>Opens the Settings window.</td></tr>
+                <tr><td><strong>Settings → Open log file / log folder / configuration folder</strong></td><td>Opens today's log, the log folder, or the folder holding <code>config.json</code>.</td></tr>
+                <tr><td><strong>Start → COMn → address:port</strong></td><td>Starts that profile. Only enabled profiles are listed, each with its state: Stopped, Starting…, Connected, or the last outcome, such as "Last attempt: in use". Hover over a failed one to see why.</td></tr>
+                <tr><td><strong>COMn — state</strong></td><td>One entry per active connection, with <strong>Disconnect</strong> (or <strong>Cancel</strong> while connecting) and live details: the target, status, the port settings your application chose, how long it's been connected, and bytes each way.</td></tr>
+                <tr><td><strong>Exit</strong></td><td>Closes every connection cleanly, releases the ports and quits. If Settings has unsaved changes, you're asked first.</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class='table-wrap'>
+            <table>
+              <thead><tr><th scope='col'>Icon</th><th scope='col'>Meaning</th></tr></thead>
+              <tbody>
+                <tr><td><span class='dot'></span> Grey</td><td>No active connections.</td></tr>
+                <tr><td><span class='dot amber'></span> Amber</td><td>Connecting or disconnecting.</td></tr>
+                <tr><td><span class='dot green'></span> Green</td><td>At least one device connected.</td></tr>
+                <tr><td><span class='dot red'></span> Red</td><td>The last attempt failed or a connection dropped. Clears at the next start.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section id='settings' class='section'>
+          <p class='section-label'>Reference</p>
+          <h2>Settings reference.</h2>
+          <h3>Profile columns</h3>
+          <div class='table-wrap'>
+            <table>
+              <thead><tr><th scope='col'>Column</th><th scope='col'>Meaning</th></tr></thead>
+              <tbody>
+                <tr><td><strong>Enabled</strong></td><td>Whether the profile appears under <strong>Start</strong>. Disabled profiles stay saved.</td></tr>
+                <tr><td><strong>Target Server</strong></td><td>The device's IP address or host name.</td></tr>
+                <tr><td><strong>Target Port</strong></td><td>The device's TCP port, 1–65535.</td></tr>
+                <tr><td><strong>Local COM Port</strong></td><td>The port your application opens. The list offers existing virtual ports and the next free numbers.</td></tr>
+                <tr><td><strong>Virtual Port</strong></td><td>Read-only status: ready, not created yet, created but not running (a signature problem, Device Manager Code 52), or not available because another device owns the number.</td></tr>
+                <tr><td><strong>Proxy-side Port</strong></td><td>Leave blank. Only for another virtual serial driver's port pair: enter the port at the other end of that pair.</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <h3>Connection options</h3>
+          <div class='table-wrap'>
+            <table>
+              <thead><tr><th scope='col'>Option</th><th scope='col'>Default</th><th scope='col'>Range</th><th scope='col'>Purpose</th></tr></thead>
+              <tbody>
+                <tr><td>Connect timeout</td><td>5 s</td><td>1–120 s</td><td>How long to wait for the device to accept the connection.</td></tr>
+                <tr><td>Release interval after disconnect</td><td>2 s</td><td>0–60 s</td><td>After a session to a device closes, wait this long before connecting to it again, so it has released the session.</td></tr>
+                <tr><td>In-use detection window</td><td>1500 ms</td><td>0–10000 ms</td><td>If the device closes a new connection within this time, report <strong>Port in use</strong>.</td></tr>
+                <tr><td>Log forwarded data in hex</td><td>Off</td><td></td><td>Records every byte in the log. For troubleshooting only: the data can include device configuration.</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <h3>Rules checked when you save</h3>
+          <ul class='bullets'>
+            <li>Every profile needs a valid server, a port from 1 to 65535, and a COM port from COM1 to COM256.</li>
+            <li>Each COM port belongs to one profile, and each endpoint to one COM port.</li>
+            <li>A COM port that belongs to other hardware is refused.</li>
+            <li>A connected profile can't be removed or have its connection changed until you disconnect it. Saving never interrupts a connection.</li>
+            <li>Nothing is written if any check fails, and the file is replaced atomically, so a failed save never damages the previous configuration.</li>
+          </ul>
+        </section>
+
+        <section id='single-session' class='section'>
+          <p class='section-label'>Safety</p>
+          <h2>Single-session safety.</h2>
+          <p>Many serial-over-TCP devices serve one client at a time and drop any other, while monitoring systems poll them on the same port. The bridge never takes a session another client holds.</p>
+          <div class='table-wrap'>
+            <table>
+              <thead><tr><th scope='col'>Risk</th><th scope='col'>Safeguard</th></tr></thead>
+              <tbody>
+                <tr><td>Two profiles reaching the same device</td><td>Refused at start. The lock matches the configured name and every resolved address.</td></tr>
+                <tr><td>Reconnecting before the device has released the last session</td><td>Release interval (default 2 s) after every disconnect.</td></tr>
+                <tr><td>Another client already holds the session</td><td>Detected when the device closes the new connection straight away, or before sending anything. Reported as <strong>Port in use</strong>; the other session is left alone.</td></tr>
+                <tr><td>Competing with other clients in the background</td><td>No automatic connection at start-up and no automatic reconnection.</td></tr>
+                <tr><td>The application talking before the link is up</td><td>Modem lines stay low until the device has accepted the session.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section id='messages' class='section'>
+          <p class='section-label'>Diagnostics</p>
+          <h2>Connection messages.</h2>
+          <div class='table-wrap'>
+            <table>
+              <thead><tr><th scope='col'>Shown as</th><th scope='col'>Meaning</th><th scope='col'>What to check</th></tr></thead>
+              <tbody>
+                <tr><td>In use</td><td>The device accepted the connection and then closed it, or another profile is connected to it.</td><td>Pause the other client, such as a monitoring system, then start again.</td></tr>
+                <tr><td>Refused</td><td>The host answered, but nothing accepts connections on that port.</td><td>The Target Port, and that the device's TCP service is on.</td></tr>
+                <tr><td>Timed out</td><td>No answer within the connect timeout.</td><td>That the device is on and reachable: network, VPN, firewall.</td></tr>
+                <tr><td>Unreachable</td><td>Windows has no route to that network.</td><td>The VPN or this PC's network connection.</td></tr>
+                <tr><td>Host not found</td><td>The host name didn't resolve.</td><td>The spelling, or use the IP address.</td></tr>
+                <tr><td>Virtual port error</td><td>The bridge couldn't open its end of the virtual port.</td><td>The row's <em>Virtual Port</em> status in Settings.</td></tr>
+                <tr><td>Closed by device</td><td>After working normally, the device ended the session.</td><td>Usually a device restart. Start again when it's ready.</td></tr>
+                <tr><td>Connection lost</td><td>The network stopped carrying traffic, or the connection was reset.</td><td>The network. A silent drop is detected within about 30 seconds (TCP keep-alive after 10 s idle, then every 2 s, 5 tries).</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section id='files' class='section'>
+          <p class='section-label'>Files</p>
+          <h2>Files and logs.</h2>
+          <div class='definition-grid'>
+            <div><dt>Configuration</dt><dd><code>%APPDATA%\VcnsVirtualComBridge\config.json</code>, human-readable JSON. The previous version is kept as <code>config.json.bak</code>. It contains no passwords.</dd></div>
+            <div><dt>Logs</dt><dd><code>%LOCALAPPDATA%\VcnsVirtualComBridge\logs\vcom-bridge-YYYYMMDD.log</code>, one per day, kept for 30 days.</dd></div>
+            <div><dt>What's logged</dt><dd>Start-up and exit; each connection's COM port, target and TCP endpoints; the outcome and reason; the application's port settings when the connection starts; and bytes forwarded each way.</dd></div>
+            <div><dt>Byte-level logging</dt><dd>Off by default. Switch on <strong>Log forwarded data in hex</strong> only while investigating a problem.</dd></div>
+          </div>
+          <p class='section-note'>Other editions use their own folder and log names; NovaStar Proxy, for example, uses <code>NovaStarProxy</code> and <code>novastar-proxy-YYYYMMDD.log</code>.</p>
+        </section>
+
+        <section id='editions' class='section'>
+          <p class='section-label'>Editions</p>
+          <h2>Branded editions.</h2>
+          <p>An edition is the same application with its own name, folders, defaults and wording, for a particular kind of device. Behaviour is identical in every edition. The engine (<code>Vcns.VirtualCom.Bridge</code>) and the tray app (<code>Vcns.VirtualCom.Desktop</code>) are shared; an edition is a small executable that passes a <code>BridgeEdition</code> to <code>BridgeApp.Run</code>.</p>
+<pre><code>using Vcns.VirtualCom.Bridge;
+using Vcns.VirtualCom.Desktop;
+
+internal static class Program
+{
+    [STAThread]
+    private static int Main(string[] args) => BridgeApp.Run(new BridgeEdition
+    {
+        ProductName = "Line 2 Bridge",
+        DataFolderName = "Line2Bridge",
+        LogFilePrefix = "line2-bridge",
+        SerialApplication = "the PLC software",
+        DeviceNoun = "PLC",
+        DefaultTargetPort = 4001,
+        OtherClientExample = "the SCADA poller",
+    }, args);
+}</code></pre>
+          <div class='table-wrap'>
+            <table>
+              <thead><tr><th scope='col'>Property</th><th scope='col'>Purpose</th><th scope='col'>Generic edition</th><th scope='col'>NovaStar Proxy</th></tr></thead>
+              <tbody>
+                <tr><td><code>ProductName</code></td><td>Tray, window titles and dialogs</td><td>VCNS Virtual COM Bridge</td><td>NovaStar Proxy</td></tr>
+                <tr><td><code>DataFolderName</code></td><td>Folder under %APPDATA% and %LOCALAPPDATA%, and the single-instance lock. Keep it unchanged between versions, or users lose their settings.</td><td>VcnsVirtualComBridge</td><td>NovaStarProxy</td></tr>
+                <tr><td><code>LogFilePrefix</code></td><td>Log file names</td><td>vcom-bridge</td><td>novastar-proxy</td></tr>
+                <tr><td><code>SerialApplication</code></td><td>The application that opens the port, in messages</td><td>your serial application</td><td>NovaLCT</td></tr>
+                <tr><td><code>DeviceNoun</code></td><td>What sits at the TCP end, in messages</td><td>device</td><td>controller</td></tr>
+                <tr><td><code>DefaultTargetPort</code></td><td>Filled in for new profiles</td><td>(blank)</td><td>5200</td></tr>
+                <tr><td><code>OtherClientExample</code></td><td>Named in "in use" messages</td><td>(none)</td><td>Zabbix polling</td></tr>
+                <tr><td><code>ConnectReminder</code></td><td>Optional reminder before each connection and after it ends, with a Settings check box to turn it off. In its text, <code>{endpoint}</code> and <code>{port}</code> are filled in.</td><td>(none)</td><td>Pause Zabbix polling first</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p>Reference <code>src/Vcns.VirtualCom.Desktop</code> from your executable's project, for example through a git submodule. The engine embeds the signed driver package when it's available at build time; see <a href='building.html#bridge'>Build &amp; sign</a>.</p>
+        </section>
+
+        <section id='server-mode' class='section'>
+          <p class='section-label'>Roadmap</p>
+          <h2>Server mode (planned).</h2>
+          <div class='warning-callout'>
+            <h3>Not in the current build</h3>
+            <p>This section describes the design for the next stage of the bridge. It isn't available yet.</p>
+          </div>
+          <p>Today the bridge works in <strong>client mode</strong>: a virtual COM port on this PC connects out to a device's TCP port. <strong>Server mode</strong> is the reverse: real COM ports on a host, such as USB-attached devices, each listen on their own TCP port, so other PCs and monitoring systems can reach them over the network.</p>
+          <div class='card-grid'>
+            <article class='card'>
+              <h3>Behaves like a serial device server</h3>
+              <p>Raw TCP with no handshake, one client per port, and a second client accepted then closed straight away. A device exposed this way looks the same on the network as one with a built-in single-session TCP port, so the same monitoring checks work for both.</p>
+            </article>
+            <article class='card'>
+              <h3>Predictable port numbers</h3>
+              <p>Each COM port gets its own TCP port, suggested as 5200 plus the COM number: COM3 on 5203, COM4 on 5204, and so on. The base is configurable, ports already used or reserved on the host are skipped, and any number can be overridden.</p>
+            </article>
+            <article class='card'>
+              <h3>Unattended</h3>
+              <p>Runs as a Windows service, so ports stay available with nobody logged in. Each COM port is opened only while a client is connected, and serial settings are fixed per port, because raw TCP clients can't set a baud rate.</p>
+            </article>
+            <article class='card'>
+              <h3>Locked down by default</h3>
+              <p>Off until you turn it on. Each port listens on one chosen network interface, accepts only listed client addresses, and gets a firewall rule scoped to them. Changing the configuration needs administrator approval.</p>
+            </article>
+          </div>
+        </section>
+
+        <section id='security' class='section'>
+          <p class='section-label'>Security</p>
+          <h2>Security.</h2>
+          <ul class='bullets'>
+            <li>Client mode makes outgoing connections only, to the endpoints you configure, when you start them. It opens no listening sockets and doesn't change the firewall.</li>
+            <li>The TCP link carries the device's own protocol unencrypted. Use a trusted network or a VPN.</li>
+            <li>No credentials are stored, and there's no telemetry or update check.</li>
+            <li>The tray app runs as a normal user. Creating or removing ports runs in a short-lived elevated copy of the program, one Windows prompt per change.</li>
+          </ul>
+        </section>
+      </main>
+    </div>
+
+    <footer class='site-footer'>
+      <p>virtual-com · © 2026 VCNS Tech Ltd · <a href='https://github.com/vcns/virtual-com/blob/main/LICENSE'>MS-PL licence</a></p>
+      <p><a href='index.html'>Home</a> · <a href='faq.html'>FAQ</a> · <a href='https://github.com/vcns/virtual-com'>Repository</a></p>
+    </footer>
+  </div>
+</body>
+</html>
