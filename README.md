@@ -14,6 +14,8 @@ Bytes written to one end are read from the other, unchanged. The COM end behaves
  Serial application ──► COM20 ══ vcnsvcom driver ══ host interface ──► your application (e.g. TCP bridge)
 ```
 
+The repository also contains a ready-made host application, the **VCNS Virtual COM Bridge**, which connects virtual COM ports to TCP devices (see [Bridge applications](#bridge-applications)).
+
 > **Status: early development.** It passes its test suite on Windows 11 25H2 with Secure Boot on. It has not yet been released with a production signature: see [Signing](#signing).
 
 **Documentation:** <https://vcns.github.io/virtual-com/>: use cases, user and developer guides, reference, building and FAQ. The site's source is in [gh-pages/](gh-pages/).
@@ -32,7 +34,10 @@ The driver is a UMDF DLL loaded by Windows' own driver host. It contains no kern
 | `include/vcom.h` | Public interface: host-end interface GUID and control codes. |
 | `src/Vcns.VirtualCom` | .NET library: create, list and remove ports (`VirtualComDevices`) and open the host end (`VirtualComHost`). |
 | `src/vcomctl` | Command-line tool built on the library. |
-| `tests/` | Behaviour tests against a real installed port, using `System.IO.Ports`. |
+| `src/Vcns.VirtualCom.Bridge` | Bridge engine: profiles, configuration, COM ↔ TCP sessions, single-session locking, port allocation, and an elevated helper that creates ports with the embedded driver package. |
+| `src/Vcns.VirtualCom.Desktop` | The bridge's tray application and Settings window, shared by every edition. |
+| `src/vcombridge` | The generic edition: **VCNS Virtual COM Bridge**. |
+| `tests/` | Driver behaviour tests against a real installed port, using `System.IO.Ports`, and the bridge's unit, loopback and end-to-end tests. |
 
 The COM end's modem lines (CTS, DSR, DCD) are raised while the host end is open, so applications see a "cable" only when something is attached. The host can change them with `VirtualComHost.SetModemLines`. With nothing attached, writes from the application are discarded, as on an unplugged line.
 
@@ -62,6 +67,43 @@ vcomctl remove COM20                            (administrator)
 
 `create` sets the COM number you choose and claims it in Windows' COM name database.
 
+## Bridge applications
+
+The bridge gives a serial application a COM port that leads to a device's TCP port:
+
+```
+ Serial application ──► COM9 ══ vcnsvcom ══ VCNS Virtual COM Bridge ──TCP──► device (e.g. 192.168.10.50:5200)
+```
+
+- **Profiles** map one virtual COM port to one TCP endpoint. New ports are numbered above every COM port already used or reserved on the PC.
+- **On demand:** nothing connects until you start a profile from the tray menu, and nothing reconnects by itself.
+- **Single-session safe:** at most one connection per endpoint, a release interval between connections, and a device that drops a second client is reported as **in use** rather than retried.
+- **Transparent:** bytes are forwarded unchanged in both directions, as soon as they arrive.
+- The COM end's modem lines rise only once the device has accepted the session.
+- Creating or removing ports asks for administrator approval once per change; everything else runs as a normal user.
+
+### Editions
+
+An edition is a small executable that runs the shared application with its own name, data folder and wording:
+
+```csharp
+[STAThread]
+static int Main(string[] args) => BridgeApp.Run(new BridgeEdition
+{
+    ProductName = "Example Bridge",
+    DataFolderName = "ExampleBridge",     // %APPDATA% and %LOCALAPPDATA% folder; also the single-instance lock
+    LogFilePrefix = "example-bridge",
+    SerialApplication = "the console",    // used in messages: "the console opens COM9"
+    DeviceNoun = "controller",
+    DefaultTargetPort = 4001,
+    OtherClientExample = "the monitoring system",
+}, args);
+```
+
+NovaStar Proxy is the edition for NovaStar LED controllers: NovaLCT wording, port 5200 by default, and a reminder to pause Zabbix polling before connecting.
+
+**Server mode**, the reverse direction (real COM ports, such as USB-attached devices, listening on TCP ports), is planned for the bridge.
+
 ## Building
 
 You need:
@@ -78,6 +120,12 @@ dotnet build VirtualCom.slnx
 ```
 
 The package in `out\Release\package` contains `vcnsvcom.dll`, `vcnsvcom.inf` and an unsigned `vcnsvcom.cat`.
+
+Once the package is signed (below), the bridge embeds it. To publish the bridge as a single self-contained executable in `out\publish\vcombridge`:
+
+```powershell
+dotnet publish src\vcombridge -p:PublishProfile=win-x64
+```
 
 ## Signing
 
@@ -107,9 +155,10 @@ Release builds will be signed by **VCNS Tech Ltd**. Until then, development uses
 ```powershell
 $env:VCOM_TEST_PORT = 'COM20'
 dotnet test tests\Vcns.VirtualCom.Tests
+dotnet test tests\Vcns.VirtualCom.Bridge.Tests
 ```
 
-Without `VCOM_TEST_PORT`, the port tests are skipped. The CI workflow builds and test-signs the driver, installs it on the GitHub-hosted Windows runner, and runs the full suite.
+Without `VCOM_TEST_PORT`, the port tests and the bridge's end-to-end tests are skipped. The CI workflow builds and test-signs the driver, installs it on the GitHub-hosted Windows runner, and runs the full suite.
 
 ## Limitations
 
