@@ -16,6 +16,8 @@ Bytes written to one end are read from the other, unchanged. The COM end behaves
 
 > **Status: early development.** It passes its test suite on Windows 11 25H2 with Secure Boot on. It has not yet been released with a production signature: see [Signing](#signing).
 
+**Documentation:** <https://vcns.github.io/virtual-com/>: use cases, user and developer guides, reference, building and FAQ. The site's source is in [gh-pages/](gh-pages/).
+
 ## Why user mode
 
 The driver is a UMDF DLL loaded by Windows' own driver host. It contains no kernel-mode code, so:

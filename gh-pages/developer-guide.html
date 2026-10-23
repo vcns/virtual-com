@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang='en-GB'>
+<head>
+  <meta charset='UTF-8'>
+  <meta name='viewport' content='width=device-width, initial-scale=1.0'>
+  <title>Developer guide · virtual-com</title>
+  <meta name='description' content='Write the host side of a virtual COM port: the Vcns.VirtualCom .NET library, an echo example, a TCP bridge example, host-end behaviour, and the native interface for C and C++.'>
+  <link rel='icon' href='favicon.ico'>
+  <link rel='stylesheet' href='styles.css'>
+</head>
+<body>
+  <a class='skip-link' href='#main'>Skip to content</a>
+  <div class='page-shell'>
+    <header class='hero'>
+      <div class='hero-copy'>
+        <p class='eyebrow'>virtual-com · Developer guide</p>
+        <h1>Write the software behind the port.</h1>
+        <p class='lede'>Your application is the host end of each virtual port. This guide covers the .NET library, how the host end behaves, and the native interface for other languages.</p>
+      </div>
+      <aside class='hero-panel'>
+        <h2>In short</h2>
+        <ul>
+          <li><code>VirtualComDevices</code> creates, lists and removes ports (admin)</li>
+          <li><code>VirtualComHost.Open("COM20")</code> gives you a <code>Stream</code></li>
+          <li>Reads return as soon as any data arrives</li>
+          <li>You control the CTS, DSR, DCD and RI lines the application sees</li>
+          <li>You can read the application's baud rate, line settings, DTR and RTS</li>
+        </ul>
+      </aside>
+    </header>
+
+    <div class='content-shell'>
+      <nav class='sidebar' aria-label='Documentation navigation'>
+        <div class='sidebar-group'>
+          <h3>Site</h3>
+          <ul>
+            <li><a href='index.html'>Home</a></li>
+            <li><a href='use-cases.html'>Use cases</a></li>
+            <li><a href='user-guide.html'>User guide</a></li>
+            <li><a href='developer-guide.html' aria-current='page'>Developer guide</a></li>
+            <li><a href='reference.html'>Serial reference</a></li>
+            <li><a href='building.html'>Build &amp; sign</a></li>
+            <li><a href='faq.html'>FAQ</a></li>
+            <li><a href='https://github.com/vcns/virtual-com'>Repository</a></li>
+          </ul>
+        </div>
+        <div class='sidebar-group'>
+          <h3>On this page</h3>
+          <ul>
+            <li><a href='#setup'>Adding the library</a></li>
+            <li><a href='#echo'>Echo example</a></li>
+            <li><a href='#bridge'>TCP bridge example</a></li>
+            <li><a href='#api'>.NET API</a></li>
+            <li><a href='#behaviour'>Host-end behaviour</a></li>
+            <li><a href='#admin'>Admin operations</a></li>
+            <li><a href='#native'>Native interface</a></li>
+          </ul>
+        </div>
+      </nav>
+
+      <main id='main'>
+        <section id='setup' class='section'>
+          <p class='section-label'>Setup</p>
+          <h2>Adding the library.</h2>
+          <p>The library is <code>src/Vcns.VirtualCom</code> in the repository. It targets .NET 10 on Windows and has no package dependencies. Until it's published as a NuGet package, add the repository as a git submodule and reference the project:</p>
+<pre><code>git submodule add https://github.com/vcns/virtual-com.git external/virtual-com</code></pre>
+<pre><code>&lt;ItemGroup&gt;
+  &lt;ProjectReference Include="external\virtual-com\src\Vcns.VirtualCom\Vcns.VirtualCom.csproj" /&gt;
+&lt;/ItemGroup&gt;</code></pre>
+        </section>
+
+        <section id='echo' class='section'>
+          <p class='section-label'>Example</p>
+          <h2>Echo everything back.</h2>
+          <p>The smallest useful host: everything the application on COM20 sends comes straight back. Run it, then open COM20 in any terminal program and type.</p>
+<pre><code>using Vcns.VirtualCom;
+
+using var port = VirtualComHost.Open("COM20");
+var buffer = new byte[4096];
+while (true)
+{
+    int n = await port.Stream.ReadAsync(buffer);   // waits until the application writes something
+    await port.Stream.WriteAsync(buffer.AsMemory(0, n));
+}</code></pre>
+        </section>
+
+        <section id='bridge' class='section'>
+          <p class='section-label'>Example</p>
+          <h2>Bridge a port to TCP.</h2>
+          <p>A minimal network bridge. The lines stay low until the TCP connection is up, so the application sees the "cable" only when there's something at the other end.</p>
+<pre><code>using System.Net.Sockets;
+using Vcns.VirtualCom;
+
+using var port = VirtualComHost.Open("COM20");
+port.SetModemLines(ModemLines.None);                    // looks unplugged for now
+
+using var tcp = new TcpClient { NoDelay = true };
+await tcp.ConnectAsync("192.168.10.50", 5200);
+using var network = tcp.GetStream();
+
+port.SetModemLines(ModemLines.Cts | ModemLines.Dsr | ModemLines.CarrierDetect);
+
+var state = port.GetState();
+Console.WriteLine($"{state.PortName}: application open = {state.ComOpen}, {state.BaudRate} baud");
+
+await Task.WhenAny(port.Stream.CopyToAsync(network), network.CopyToAsync(port.Stream));</code></pre>
+          <p class='section-note'>A production bridge also needs time-outs, keep-alives, clean shutdown and error reporting. Bytes are never split, merged or reordered, but one read can return any number of them, so don't assume one read is one message.</p>
+        </section>
+
+        <section id='api' class='section'>
+          <p class='section-label'>API</p>
+          <h2>.NET API.</h2>
+          <h3><code>VirtualComDevices</code> (static)</h3>
+          <div class='table-wrap'>
+            <table>
+              <thead><tr><th scope='col'>Member</th><th scope='col'>Admin</th><th scope='col'>Description</th></tr></thead>
+              <tbody>
+                <tr><td><code>bool InstallDriver(string infPath)</code></td><td>Yes</td><td>Adds the signed driver package to the driver store and updates existing ports to it. Returns true if Windows wants a restart.</td></tr>
+                <tr><td><code>VirtualComPort Create(string portName)</code></td><td>Yes</td><td>Creates a port called <code>portName</code> (for example <code>"COM20"</code>), claims the number, and installs the driver on it.</td></tr>
+                <tr><td><code>void Remove(string portNameOrInstanceId)</code></td><td>Yes</td><td>Removes a port and releases its number.</td></tr>
+                <tr><td><code>IReadOnlyList&lt;VirtualComPort&gt; List()</code></td><td>No</td><td>Every virtual port, including ports whose driver isn't running.</td></tr>
+                <tr><td><code>string? FindHostPath(string portName)</code></td><td>No</td><td>The device path of the port's host end, or null if it isn't running.</td></tr>
+                <tr><td><code>const string HardwareId</code></td><td></td><td><code>Root\VcnsVirtualCom</code></td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p><code>VirtualComPort</code> is a record: <code>InstanceId</code> (for example <code>ROOT\VCNSVCOM\0000</code>), <code>PortName</code>, <code>IsRunning</code>, and <code>ProblemCode</code> (Device Manager's problem number when not running; 52 means the signature was rejected).</p>
+
+          <h3><code>VirtualComHost</code> (IDisposable)</h3>
+          <div class='table-wrap'>
+            <table>
+              <thead><tr><th scope='col'>Member</th><th scope='col'>Description</th></tr></thead>
+              <tbody>
+                <tr><td><code>static VirtualComHost Open(string portName)</code></td><td>Opens the host end. Throws <code>IOException</code> if the port isn't running or its host end is already open.</td></tr>
+                <tr><td><code>Stream Stream</code></td><td>Read what the application writes; write what it should read. Supports concurrent reads and writes.</td></tr>
+                <tr><td><code>VirtualComPortState GetState()</code></td><td>What the application has done: whether it has the port open, DTR, RTS, break, baud rate, data bits, parity, stop bits, and bytes waiting in each direction.</td></tr>
+                <tr><td><code>void SetModemLines(ModemLines lines)</code></td><td>Sets the CTS, DSR, RI and DCD lines the application sees, and raises the matching events.</td></tr>
+                <tr><td><code>string PortName</code></td><td>The COM name.</td></tr>
+                <tr><td><code>static Guid InterfaceGuid</code></td><td><code>{13DBB15D-28F8-4AEB-81B8-C45B6F98B810}</code></td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p><code>ModemLines</code> is a flags enum: <code>Cts</code> (0x10), <code>Dsr</code> (0x20), <code>Ring</code> (0x40), <code>CarrierDetect</code> (0x80). These are the same bits <code>GetCommModemStatus</code> reports to the application.</p>
+          <p><code>VirtualComPortState.Parity</code> uses the Windows constants: 0 none, 1 odd, 2 even, 3 mark, 4 space. <code>StopBits</code> is 0 for 1 stop bit, 1 for 1.5 and 2 for 2.</p>
+        </section>
+
+        <section id='behaviour' class='section'>
+          <p class='section-label'>Semantics</p>
+          <h2>How the host end behaves.</h2>
+          <div class='table-wrap'>
+            <table>
+              <thead><tr><th scope='col'>Situation</th><th scope='col'>Behaviour</th></tr></thead>
+              <tbody>
+                <tr><td>Host reads, nothing buffered</td><td>The read waits until the application writes. It never completes with zero bytes; cancel it (or close the host end) to stop waiting.</td></tr>
+                <tr><td>Host reads, data buffered</td><td>Completes at once with up to the requested number of bytes.</td></tr>
+                <tr><td>Host writes</td><td>Completes once every byte is in the 64 KB buffer to the application. If the buffer is full, the write waits until the application reads.</td></tr>
+                <tr><td>Host writes, application doesn't have the port open</td><td>Completes at once; the data is discarded.</td></tr>
+                <tr><td>Application writes, no host attached</td><td>Completes at once; the data is discarded.</td></tr>
+                <tr><td>Host end opened</td><td>CTS, DSR and DCD are raised. The application gets CTS, DSR and RLSD events if it is waiting for them.</td></tr>
+                <tr><td>Host end closed</td><td>All lines drop. Data the application wrote but the host hadn't read is discarded.</td></tr>
+                <tr><td>Application closes the port</td><td>Its pending reads, writes and waits complete as cancelled. Data the host wrote that it hadn't read is discarded.</td></tr>
+                <tr><td>Second open of either end</td><td>Fails with access denied, as with a real serial port.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section id='admin' class='section'>
+          <p class='section-label'>Privileges</p>
+          <h2>Admin operations in your application.</h2>
+          <p><code>InstallDriver</code>, <code>Create</code> and <code>Remove</code> change devices and need administrator rights. Everything else, including being the host end, works as a standard user. A good pattern is to run the privileged steps in a short-lived elevated copy of your own executable. Use <code>ProcessStartInfo</code> with <code>Verb = "runas"</code> and <code>UseShellExecute = true</code>, and pass the job in a file. That way the user approves one UAC prompt for a change, and your main process never runs elevated.</p>
+          <p>Failures throw <code>Win32Exception</code> (Windows Setup API errors) or <code>InvalidOperationException</code> (for example "COM20 already exists").</p>
+        </section>
+
+        <section id='native' class='section'>
+          <p class='section-label'>Other languages</p>
+          <h2>Native interface.</h2>
+          <p>Anything that can call Win32 can be a host. <code>include/vcom.h</code> in the repository defines everything below.</p>
+          <div class='definition-grid'>
+            <div><dt>Interface GUID</dt><dd><code>GUID_DEVINTERFACE_VCOM_HOST</code> = <code>{13DBB15D-28F8-4AEB-81B8-C45B6F98B810}</code></dd></div>
+            <div><dt>Reference string</dt><dd>The interface path ends in <code>\HOST</code>; opening it makes you the host end.</dd></div>
+            <div><dt><code>IOCTL_VCOM_GET_PORT_STATE</code></dt><dd><code>0x001B6400</code>; output <code>VCOM_PORT_STATE</code> (56 bytes).</dd></div>
+            <div><dt><code>IOCTL_VCOM_SET_MODEM_STATUS</code></dt><dd><code>0x001BA404</code>; input a <code>ULONG</code> of <code>VCOM_LINE_*</code> bits.</dd></div>
+          </div>
+          <h3>Finding and opening the host end</h3>
+          <p>Ask Configuration Manager for the interface on the port's device. Use <code>CM_Get_Device_Interface_List</code> with the device instance ID, or list all instances and match <code>PortName</code> through <code>IOCTL_VCOM_GET_PORT_STATE</code>. Then open it for overlapped I/O, so that a pending read doesn't block your writes:</p>
+<pre><code>#include &lt;windows.h&gt;
+#include &lt;cfgmgr32.h&gt;
+#include &lt;initguid.h&gt;
+#include "vcom.h"
+
+WCHAR paths[4096];
+CM_Get_Device_Interface_ListW((LPGUID)&amp;GUID_DEVINTERFACE_VCOM_HOST, NULL, paths,
+                              ARRAYSIZE(paths), CM_GET_DEVICE_INTERFACE_LIST_PRESENT);
+/* paths holds one NUL-terminated path per running port; pick yours, then: */
+HANDLE host = CreateFileW(paths, GENERIC_READ | GENERIC_WRITE, 0, NULL,
+                          OPEN_EXISTING, FILE_FLAG_OVERLAPPED, NULL);
+
+ULONG lines = VCOM_LINE_CTS | VCOM_LINE_DSR | VCOM_LINE_DCD;
+/* DeviceIoControl(host, IOCTL_VCOM_SET_MODEM_STATUS, &amp;lines, sizeof(lines), NULL, 0, ...) */</code></pre>
+          <h3><code>VCOM_PORT_STATE</code></h3>
+          <div class='table-wrap'>
+            <table>
+              <thead><tr><th scope='col'>Offset</th><th scope='col'>Field</th><th scope='col'>Meaning</th></tr></thead>
+              <tbody>
+                <tr><td>0</td><td><code>ULONG Size</code></td><td>56</td></tr>
+                <tr><td>4</td><td><code>ULONG Flags</code></td><td><code>COM_OPEN</code> 0x1, <code>DTR</code> 0x2, <code>RTS</code> 0x4, <code>BREAK</code> 0x8</td></tr>
+                <tr><td>8</td><td><code>ULONG BaudRate</code></td><td>As last set by the application</td></tr>
+                <tr><td>12</td><td><code>UCHAR DataBits, Parity, StopBits, Reserved</code></td><td>Windows <code>SERIAL_LINE_CONTROL</code> values</td></tr>
+                <tr><td>16</td><td><code>ULONG BytesWaitingForCom</code></td><td>Written by the host, not yet read by the application</td></tr>
+                <tr><td>20</td><td><code>ULONG BytesWaitingForHost</code></td><td>Written by the application, not yet read by the host</td></tr>
+                <tr><td>24</td><td><code>WCHAR PortName[16]</code></td><td>For example <code>L"COM20"</code></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <footer class='site-footer'>
+      <p>virtual-com · © 2026 VCNS Tech Ltd · <a href='https://github.com/vcns/virtual-com/blob/main/LICENSE'>MS-PL licence</a></p>
+      <p><a href='index.html'>Home</a> · <a href='reference.html'>Serial reference</a> · <a href='https://github.com/vcns/virtual-com'>Repository</a></p>
+    </footer>
+  </div>
+</body>
+</html>

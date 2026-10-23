@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang='en-GB'>
+<head>
+  <meta charset='UTF-8'>
+  <meta name='viewport' content='width=device-width, initial-scale=1.0'>
+  <title>FAQ · virtual-com</title>
+  <meta name='description' content='Answers about virtual-com: why it is a user-mode driver, Secure Boot and signing, Windows versions, COM numbers, serial settings, compatibility and licensing.'>
+  <link rel='icon' href='favicon.ico'>
+  <link rel='stylesheet' href='styles.css'>
+</head>
+<body>
+  <a class='skip-link' href='#main'>Skip to content</a>
+  <div class='page-shell'>
+    <header class='hero'>
+      <div class='hero-copy'>
+        <p class='eyebrow'>virtual-com · FAQ</p>
+        <h1>Frequently asked questions.</h1>
+        <p class='lede'>Short answers about what virtual-com is, how it behaves, how it's signed and installed, and how to build on it.</p>
+      </div>
+      <aside class='hero-panel'>
+        <h2>Most asked</h2>
+        <ul>
+          <li><a href='#why-user-mode'>Why is it a user-mode driver?</a></li>
+          <li><a href='#secure-boot'>Does it work with Secure Boot?</a></li>
+          <li><a href='#code-52'>Why does Windows show Code 52?</a></li>
+          <li><a href='#commercial'>Can I use it commercially?</a></li>
+        </ul>
+      </aside>
+    </header>
+
+    <div class='content-shell'>
+      <nav class='sidebar' aria-label='Documentation navigation'>
+        <div class='sidebar-group'>
+          <h3>Site</h3>
+          <ul>
+            <li><a href='index.html'>Home</a></li>
+            <li><a href='use-cases.html'>Use cases</a></li>
+            <li><a href='user-guide.html'>User guide</a></li>
+            <li><a href='developer-guide.html'>Developer guide</a></li>
+            <li><a href='reference.html'>Serial reference</a></li>
+            <li><a href='building.html'>Build &amp; sign</a></li>
+            <li><a href='faq.html' aria-current='page'>FAQ</a></li>
+            <li><a href='https://github.com/vcns/virtual-com'>Repository</a></li>
+          </ul>
+        </div>
+        <div class='sidebar-group'>
+          <h3>On this page</h3>
+          <ul>
+            <li><a href='#general'>General</a></li>
+            <li><a href='#using'>Using ports</a></li>
+            <li><a href='#install'>Installation and signing</a></li>
+            <li><a href='#development'>Development</a></li>
+          </ul>
+        </div>
+      </nav>
+
+      <main id='main'>
+        <section id='general' class='section'>
+          <p class='section-label'>General</p>
+          <h2>About virtual-com.</h2>
+          <div class='faq-list'>
+            <article class='faq-item'>
+              <h3>What is virtual-com?</h3>
+              <p>A Windows driver that creates virtual serial ports. Each port has a normal COM end that any serial application can open, and a private host end that your own software opens to supply and receive the data. It comes with a .NET library and a command-line tool for creating and managing ports.</p>
+            </article>
+            <article class='faq-item' id='why-user-mode'>
+              <h3>Why is it a user-mode driver?</h3>
+              <p>Two reasons: signing and safety. New kernel-mode drivers need Microsoft's signature to load with Secure Boot on. Since April 2026, Windows 11 24H2 and later have also stopped trusting the older cross-signed kernel drivers many free serial tools relied on. A user-mode (UMDF) driver has no kernel code, so it only needs a normal code-signing certificate on its package. And if it misbehaves, Windows restarts its driver host instead of the whole machine stopping.</p>
+            </article>
+            <article class='faq-item'>
+              <h3>How is it different from com0com and other null-modem emulators?</h3>
+              <p>Those create two COM ports wired back to back, as kernel drivers. virtual-com creates one COM port and gives the other end to your program through a private interface, as a user-mode driver. So it suits software that wants to sit behind a port, rather than connecting two existing applications to each other.</p>
+            </article>
+            <article class='faq-item'>
+              <h3>Which versions of Windows does it support?</h3>
+              <p>It's designed for Windows 10 version 1809 and later, and Windows 11, on 64-bit x86 PCs. It has been tested on Windows 11 25H2. ARM64 and Windows in S mode aren't supported, because those require Microsoft-signed (WHQL) driver packages.</p>
+            </article>
+            <article class='faq-item'>
+              <h3>Is it ready for production?</h3>
+              <p>Not yet. It passes its behaviour test suite, but releases aren't yet signed with a publicly trusted certificate, and it hasn't been widely tested with third-party applications. Treat current builds as previews.</p>
+            </article>
+            <article class='faq-item' id='commercial'>
+              <h3>Can I use it commercially, or ship it with my product?</h3>
+              <p>Yes. It's licensed under the Microsoft Public License (MS-PL), which allows commercial use and redistribution. If you distribute source, it must stay under MS-PL; if you distribute binaries, your licence terms must comply with MS-PL. Keep the copyright and attribution notices. Parts of the driver are adapted from Microsoft's MS-PL VirtualSerial2 sample.</p>
+            </article>
+          </div>
+        </section>
+
+        <section id='using' class='section'>
+          <p class='section-label'>Using ports</p>
+          <h2>Day-to-day behaviour.</h2>
+          <div class='faq-list'>
+            <article class='faq-item'>
+              <h3>Can I choose the COM number?</h3>
+              <p>Yes: <code>vcomctl create COM20</code>, or <code>VirtualComDevices.Create("COM20")</code>. The number is claimed in Windows' COM name database so no other device is given it. Pick a number nothing else uses, including USB adapters that happen to be unplugged.</p>
+            </article>
+            <article class='faq-item'>
+              <h3>How many ports can I create?</h3>
+              <p>Each port is its own device, and the driver has no fixed limit. The practical limit is the COM numbers available; the tools accept COM1 to COM256.</p>
+            </article>
+            <article class='faq-item'>
+              <h3>Do the baud rate, parity and stop bits matter?</h3>
+              <p>No. The application can set anything; the settings are stored, reported back to it and to the host, and never change the data. Data moves as fast as both ends read and write. If the far side really needs those settings, for example a device behind a network bridge, the host can read them and pass them on.</p>
+            </article>
+            <article class='faq-item'>
+              <h3>Is any data changed?</h3>
+              <p>No. Bytes arrive unchanged and in order. All 8 bits are passed even if the application selects 7 data bits, where a hardware port would drop the top bit.</p>
+            </article>
+            <article class='faq-item'>
+              <h3>What happens when nothing is attached to the host end?</h3>
+              <p>The application can still open the port. CTS, DSR and DCD are low, like an unplugged cable, and anything it writes is discarded. When a host attaches, the lines rise and data flows.</p>
+            </article>
+            <article class='faq-item'>
+              <h3>Can two applications open the same port?</h3>
+              <p>No. Like a hardware serial port, each end accepts one open handle at a time; a second open fails with "Access is denied".</p>
+            </article>
+            <article class='faq-item'>
+              <h3>Is hardware or XON/XOFF flow control supported?</h3>
+              <p>The settings are accepted and stored but not enforced. Flow control between the two ends comes from the buffers: a writer waits when the 64 KB buffer to the other end is full.</p>
+            </article>
+            <article class='faq-item'>
+              <h3>Which serial libraries and programs work with it?</h3>
+              <p>Anything that uses the standard Win32 serial API should work. .NET's <code>System.IO.Ports</code> is covered by the test suite, including its <code>DataReceived</code> and <code>PinChanged</code> events. Others, such as terminal programs and pySerial, haven't been systematically tested yet. See the <a href='reference.html'>serial reference</a> for exact behaviour.</p>
+            </article>
+          </div>
+        </section>
+
+        <section id='install' class='section'>
+          <p class='section-label'>Installation and signing</p>
+          <h2>Installing and trusting the driver.</h2>
+          <div class='faq-list'>
+            <article class='faq-item' id='secure-boot'>
+              <h3>Does it work with Secure Boot and Memory Integrity on?</h3>
+              <p>Yes. It was installed and tested with Secure Boot on and test signing off. Memory Integrity (HVCI) governs kernel-mode code; virtual-com's driver runs in user mode.</p>
+            </article>
+            <article class='faq-item' id='code-52'>
+              <h3>Why does Windows show Code 52, or "can't verify the digital signature"?</h3>
+              <p>Windows doesn't trust the certificate the package was signed with. Current builds are signed with a test certificate. Import it into the machine's Trusted Root and Trusted Publishers stores, as the <a href='user-guide.html#test-certificate'>user guide</a> explains, or wait for a production-signed release.</p>
+            </article>
+            <article class='faq-item'>
+              <h3>Do I need administrator rights?</h3>
+              <p>Only to install the driver package and to create or remove ports. Opening either end of an existing port works as a standard user.</p>
+            </article>
+            <article class='faq-item'>
+              <h3>Does it need test-signing mode, or Secure Boot turned off?</h3>
+              <p>No. Neither is needed, and neither is recommended.</p>
+            </article>
+            <article class='faq-item'>
+              <h3>How do I remove it completely?</h3>
+              <p>Remove the ports with <code>vcomctl remove</code>, delete the driver package with <code>pnputil /delete-driver</code>, and remove any test certificate you trusted. The <a href='user-guide.html#uninstall'>user guide</a> has the exact steps.</p>
+            </article>
+            <article class='faq-item'>
+              <h3>Can I sign my own builds?</h3>
+              <p>Yes. Any code-signing certificate that chains to a trusted root works for a user-mode driver package. <code>build\Sign-Package.ps1</code> does the signing; see <a href='building.html#signing'>Build &amp; sign</a>.</p>
+            </article>
+          </div>
+        </section>
+
+        <section id='development' class='section'>
+          <p class='section-label'>Development</p>
+          <h2>Building on it.</h2>
+          <div class='faq-list'>
+            <article class='faq-item'>
+              <h3>How do I write the host side?</h3>
+              <p>In .NET, call <code>VirtualComHost.Open("COM20")</code> and use its <code>Stream</code>. Reads return as soon as the application has written something. The <a href='developer-guide.html'>developer guide</a> has echo and TCP bridge examples.</p>
+            </article>
+            <article class='faq-item'>
+              <h3>Can I use it from C, C++, Python or another language?</h3>
+              <p>Yes. Find the port's host interface (<code>GUID_DEVINTERFACE_VCOM_HOST</code>), open it with <code>CreateFile</code>, and use <code>ReadFile</code>, <code>WriteFile</code> and two documented <code>DeviceIoControl</code> codes. See the <a href='developer-guide.html#native'>native interface</a>. From Python, pywin32 can do the same.</p>
+            </article>
+            <article class='faq-item'>
+              <h3>How does my host know what the application set?</h3>
+              <p><code>GetState()</code>, or <code>IOCTL_VCOM_GET_PORT_STATE</code>, returns: whether the application has the port open, its DTR, RTS and break state, baud rate, data bits, parity, stop bits, and the bytes waiting in each direction.</p>
+            </article>
+            <article class='faq-item'>
+              <h3>Why does a host read never return zero bytes?</h3>
+              <p>So that a read loop is simple: zero would normally mean "end of stream". A read waits until data arrives. To stop waiting, cancel it or close the host end.</p>
+            </article>
+            <article class='faq-item'>
+              <h3>Can I run the tests in CI?</h3>
+              <p>Yes. The repository's workflow installs the test-signed driver on GitHub's hosted Windows runners and runs the full suite against a real port. Copy it for your own projects.</p>
+            </article>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <footer class='site-footer'>
+      <p>virtual-com · © 2026 VCNS Tech Ltd · <a href='https://github.com/vcns/virtual-com/blob/main/LICENSE'>MS-PL licence</a></p>
+      <p><a href='index.html'>Home</a> · <a href='user-guide.html'>User guide</a> · <a href='https://github.com/vcns/virtual-com'>Repository</a></p>
+    </footer>
+  </div>
+</body>
+</html>
