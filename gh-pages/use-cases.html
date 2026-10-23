@@ -37,6 +37,7 @@
             <li><a href='index.html'>Home</a></li>
             <li><a href='use-cases.html' aria-current='page'>Use cases</a></li>
             <li><a href='user-guide.html'>User guide</a></li>
+            <li><a href='bridge.html'>Bridge app</a></li>
             <li><a href='developer-guide.html'>Developer guide</a></li>
             <li><a href='reference.html'>Serial reference</a></li>
             <li><a href='building.html'>Build &amp; sign</a></li>
@@ -73,8 +74,8 @@
               </ul>
             </div>
             <div class='callout'>
-              <h3>Example</h3>
-              <p>VCNS uses virtual-com in a tray application that lets an LED display controller's configuration software manage controllers over the network. The controllers expose their serial protocol on a TCP port.</p>
+              <h3>Ready-made: the bridge</h3>
+              <p>You may not need to write this yourself. The repository's <a href='bridge.html'>VCNS Virtual COM Bridge</a> does exactly this, with single-session protection, on-demand connections and clear error reporting. Its NovaStar Proxy edition lets NovaLCT manage NovaStar LED controllers over the network.</p>
             </div>
           </div>
         </section>
@@ -95,7 +96,7 @@
           <h2>Test serial applications automatically.</h2>
           <p>Because the host end is just another handle, a test framework can drive it. Test your application's real serial code against scripted exchanges, including time-outs, event waits, purges and line changes, without serial hardware or loopback cables.</p>
           <ul class='bullets'>
-            <li>Runs on ordinary Windows build agents. virtual-com's own CI installs the driver on GitHub's hosted Windows runners and runs its test suite against a real port.</li>
+            <li>Runs on ordinary Windows build agents: trust the test certificate on the agent, install the driver, and run the tests against a real port, as virtual-com's own test suite does.</li>
             <li>Deterministic: the test controls exactly what the application receives and when.</li>
             <li>Inspect what the application configured (baud rate, DTR, RTS, break) through the host's state query.</li>
           </ul>

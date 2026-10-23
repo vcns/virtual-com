@@ -158,7 +158,7 @@ dotnet test tests\Vcns.VirtualCom.Tests
 dotnet test tests\Vcns.VirtualCom.Bridge.Tests
 ```
 
-Without `VCOM_TEST_PORT`, the port tests and the bridge's end-to-end tests are skipped. The CI workflow builds and test-signs the driver, installs it on the GitHub-hosted Windows runner, and runs the full suite.
+Without `VCOM_TEST_PORT`, the port tests and the bridge's end-to-end tests are skipped. A CI workflow is being added that builds and test-signs the driver, installs it on a GitHub-hosted Windows runner, runs both suites and publishes a test build of the bridge.
 
 ## Limitations
 

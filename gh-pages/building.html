@@ -37,6 +37,7 @@
             <li><a href='index.html'>Home</a></li>
             <li><a href='use-cases.html'>Use cases</a></li>
             <li><a href='user-guide.html'>User guide</a></li>
+            <li><a href='bridge.html'>Bridge app</a></li>
             <li><a href='developer-guide.html'>Developer guide</a></li>
             <li><a href='reference.html'>Serial reference</a></li>
             <li><a href='building.html' aria-current='page'>Build &amp; sign</a></li>
@@ -51,6 +52,7 @@
             <li><a href='#build'>Build</a></li>
             <li><a href='#layout'>Repository layout</a></li>
             <li><a href='#signing'>Signing</a></li>
+            <li><a href='#bridge'>Building the bridge</a></li>
             <li><a href='#testing'>Testing</a></li>
             <li><a href='#ci'>Continuous integration</a></li>
             <li><a href='#contributing'>Contributing</a></li>
@@ -101,7 +103,10 @@ dotnet build VirtualCom.slnx -c Release</code></pre>
                 <tr><td><code>build/</code></td><td><code>Umdf.props</code> (toolchain) and <code>Sign-Package.ps1</code>.</td></tr>
                 <tr><td><code>src/Vcns.VirtualCom/</code></td><td>.NET library.</td></tr>
                 <tr><td><code>src/vcomctl/</code></td><td>Command-line tool.</td></tr>
-                <tr><td><code>tests/</code></td><td>Behaviour tests against an installed port.</td></tr>
+                <tr><td><code>src/Vcns.VirtualCom.Bridge/</code></td><td>The bridge engine, which embeds the signed driver package.</td></tr>
+                <tr><td><code>src/Vcns.VirtualCom.Desktop/</code></td><td>The bridge's tray application and Settings window.</td></tr>
+                <tr><td><code>src/vcombridge/</code></td><td>The generic bridge edition, VCNS Virtual COM Bridge.</td></tr>
+                <tr><td><code>tests/</code></td><td>Driver behaviour tests against an installed port, and the bridge's unit, loopback and end-to-end tests.</td></tr>
                 <tr><td><code>scripts/</code></td><td>Development install and uninstall with a test certificate.</td></tr>
                 <tr><td><code>gh-pages/</code></td><td>This website.</td></tr>
               </tbody>
@@ -135,6 +140,16 @@ dotnet build VirtualCom.slnx -c Release</code></pre>
           </div>
         </section>
 
+        <section id='bridge' class='section'>
+          <p class='section-label'>Bridge</p>
+          <h2>Build the bridge.</h2>
+          <p>The bridge engine embeds the driver package so the app can install the driver itself. It looks for a <em>signed</em> package in <code>out\Release\package</code>, so build and sign the driver first. To use a package from elsewhere, pass its folder:</p>
+<pre><code>dotnet build src\vcombridge -p:VirtualComPackageDir=D:\signed\package\</code></pre>
+          <p>To publish a single self-contained executable, with no .NET runtime needed on the target PC:</p>
+<pre><code>dotnet publish src\vcombridge -p:PublishProfile=win-x64     # -> out\publish\vcombridge\vcombridge.exe</code></pre>
+          <p>Without a package, the bridge still builds and can use existing ports and com0com, but it can't create VCNS ports. Branded editions such as NovaStar Proxy build the same way from their own repositories, with virtual-com as a submodule.</p>
+        </section>
+
         <section id='testing' class='section'>
           <p class='section-label'>Testing</p>
           <h2>Run the tests.</h2>
@@ -149,21 +164,24 @@ scripts\Install-TestPort.ps1 -Port COM20
 
 # any prompt
 $env:VCOM_TEST_PORT = 'COM20'
-dotnet test tests\Vcns.VirtualCom.Tests</code></pre>
-          <p>Without <code>VCOM_TEST_PORT</code>, the port tests are skipped. <code>scripts\Uninstall-Test.ps1</code> removes the ports, the package and the certificate again.</p>
+dotnet test tests\Vcns.VirtualCom.Tests
+dotnet test tests\Vcns.VirtualCom.Bridge.Tests</code></pre>
+          <p>The bridge tests cover configuration, port allocation and the bridge itself, using a simulated device and serial port over loopback. With <code>VCOM_TEST_PORT</code> set, they also run end-to-end tests through the real driver: a <code>System.IO.Ports</code> client, the bridge, TCP and a simulated device. Without <code>VCOM_TEST_PORT</code>, the port tests and end-to-end tests are skipped. <code>scripts\Uninstall-Test.ps1</code> removes the ports, the package and the certificate again.</p>
         </section>
 
         <section id='ci' class='section'>
           <p class='section-label'>CI</p>
           <h2>Continuous integration.</h2>
+          <p class='section-note'>The workflow is being added to the repository. Until it is, run the same steps locally.</p>
           <p>The GitHub Actions workflow runs on a hosted Windows Server 2025 runner. On every push it:</p>
           <ol class='steps'>
             <li>restores the NuGet kits;</li>
-            <li>builds the driver, library, tool and tests;</li>
+            <li>builds the driver, library, tool, bridge and tests;</li>
             <li>test-signs the package with a throwaway certificate;</li>
             <li>trusts that certificate on the runner;</li>
-            <li>installs the driver, creates COM20 and runs the full test suite;</li>
-            <li>uploads the test-signed package as a build artefact.</li>
+            <li>installs the driver, creates COM20, and runs the driver and bridge test suites;</li>
+            <li>publishes the bridge with the test-signed driver embedded;</li>
+            <li>uploads the test-signed package and the bridge test build as artefacts.</li>
           </ol>
           <p>Because the runner is a throwaway virtual machine, trusting the test certificate there carries no risk.</p>
         </section>
