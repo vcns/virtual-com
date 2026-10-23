@@ -34,7 +34,7 @@ The driver is a UMDF DLL loaded by Windows' own driver host. It contains no kern
 | `include/vcom.h` | Public interface: host-end interface GUID and control codes. |
 | `src/Vcns.VirtualCom` | .NET library: create, list and remove ports (`VirtualComDevices`) and open the host end (`VirtualComHost`). |
 | `src/vcomctl` | Command-line tool built on the library. |
-| `src/Vcns.VirtualCom.Bridge` | Bridge engine: profiles, configuration, COM ↔ TCP sessions, single-session locking, port allocation, and an elevated helper that creates ports with the embedded driver package. |
+| `src/Vcns.VirtualCom.Bridge` | Bridge engine: profiles, configuration, COM ↔ TCP client sessions, server mode (shared COM ports and its Windows service), single-session locking, port allocation, and an elevated helper that creates ports with the embedded driver package and applies server settings. |
 | `src/Vcns.VirtualCom.Desktop` | The bridge's tray application and Settings window, shared by every edition. |
 | `src/vcombridge` | The generic edition: **VCNS Virtual COM Bridge**. |
 | `tests/` | Driver behaviour tests against a real installed port, using `System.IO.Ports`, and the bridge's unit, loopback and end-to-end tests. |
@@ -69,7 +69,9 @@ vcomctl remove COM20                            (administrator)
 
 ## Bridge applications
 
-The bridge gives a serial application a COM port that leads to a device's TCP port:
+The bridge works in two directions.
+
+**Client mode** gives a serial application a COM port that leads to a device's TCP port:
 
 ```
  Serial application ──► COM9 ══ vcnsvcom ══ VCNS Virtual COM Bridge ──TCP──► device (e.g. 192.168.10.50:5200)
@@ -81,6 +83,18 @@ The bridge gives a serial application a COM port that leads to a device's TCP po
 - **Transparent:** bytes are forwarded unchanged in both directions, as soon as they arrive.
 - The COM end's modem lines rise only once the device has accepted the session.
 - Creating or removing ports asks for administrator approval once per change; everything else runs as a normal user.
+
+**Server mode** shares this PC's real COM ports, such as USB-attached devices, on TCP ports:
+
+```
+ Client (bridge in client mode, monitoring, any TCP client) ──TCP 4003──► bridge service ──► COM3 ──► device
+```
+
+- Each shared port behaves like a single-session serial device server: raw TCP with no handshake, one client at a time, and any other client accepted and closed straight away (client mode reports it as **in use**).
+- The COM port is opened only while a client is connected, with fixed per-port baud rate, format and flow control.
+- TCP ports are suggested as the edition's base plus the COM number (4000 + n generically, 5200 + n for NovaStar Proxy), skipping ports in use or reserved.
+- A Windows service (`--service`, running as LocalService) does the work, so ports stay available with nobody logged in. Its settings are in `%ProgramData%`, changeable only by administrators.
+- Each port listens on one chosen address, serves only its allowed clients, and gets a firewall rule limited to them. It's off until you turn it on in **Settings → Server ports**.
 
 ### Editions
 
@@ -97,12 +111,11 @@ static int Main(string[] args) => BridgeApp.Run(new BridgeEdition
     DeviceNoun = "controller",
     DefaultTargetPort = 4001,
     OtherClientExample = "the monitoring system",
+    ServerPortBase = 4000,                // server mode: COM3 is shared on TCP 4003
 }, args);
 ```
 
-NovaStar Proxy is the edition for NovaStar LED controllers: NovaLCT wording, port 5200 by default, and a reminder to pause Zabbix polling before connecting.
-
-**Server mode**, the reverse direction (real COM ports, such as USB-attached devices, listening on TCP ports), is planned for the bridge.
+NovaStar Proxy is the edition for NovaStar LED controllers: NovaLCT wording, port 5200 by default (and 5200 + COM number in server mode), and a reminder to pause Zabbix polling before connecting.
 
 ## Building
 

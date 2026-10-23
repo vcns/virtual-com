@@ -4,7 +4,7 @@
   <meta charset='UTF-8'>
   <meta name='viewport' content='width=device-width, initial-scale=1.0'>
   <title>Bridge app · virtual-com</title>
-  <meta name='description' content='The VCNS Virtual COM Bridge gives serial software a COM port that leads to a device on a TCP port: profiles, on-demand connections, single-session protection, editions such as NovaStar Proxy, and planned server mode.'>
+  <meta name='description' content='The VCNS Virtual COM Bridge gives serial software a COM port that leads to a device on a TCP port, and shares real COM ports on TCP ports in server mode: profiles, on-demand connections, single-session protection, and editions such as NovaStar Proxy.'>
   <link rel='icon' href='favicon.ico'>
   <link rel='stylesheet' href='styles.css'>
 </head>
@@ -15,9 +15,10 @@
       <div class='hero-copy'>
         <p class='eyebrow'>virtual-com · Bridge app</p>
         <h1>A COM port that leads to the network.</h1>
-        <p class='lede'>The VCNS Virtual COM Bridge is a ready-made host for virtual-com ports. It gives serial software a COM port on this PC that leads to a device's TCP port, so vendor tools that only speak COM can manage networked devices unchanged.</p>
+        <p class='lede'>The VCNS Virtual COM Bridge is a ready-made host for virtual-com ports. It gives serial software a COM port on this PC that leads to a device's TCP port, so vendor tools that only speak COM can manage networked devices unchanged. In server mode it works the other way round, sharing this PC's real COM ports on TCP ports.</p>
         <div class='hero-actions'>
           <a class='button primary' href='#setup'>Set it up</a>
+          <a class='button secondary' href='#server-mode'>Server mode</a>
           <a class='button secondary' href='#editions'>Build an edition</a>
         </div>
       </div>
@@ -25,11 +26,11 @@
         <h2>At a glance</h2>
         <ul>
           <li>Tray application for Windows 10 1809+ and Windows 11, x64</li>
-          <li>One profile per device: a virtual COM port and a TCP endpoint</li>
-          <li>Connects only when you ask; never reconnects by itself</li>
+          <li><strong>Client mode:</strong> a virtual COM port per device, connected to its TCP port when you ask</li>
+          <li><strong>Server mode:</strong> real COM ports shared on TCP ports by a Windows service</li>
           <li>Protects devices that accept a single session</li>
           <li>Bytes forwarded unchanged, as soon as they arrive</li>
-          <li>Administrator approval only to create or remove ports</li>
+          <li>Administrator approval only for port, service and firewall changes</li>
           <li>Branded editions, such as NovaStar Proxy</li>
         </ul>
       </aside>
@@ -61,8 +62,12 @@
             <li><a href='#single-session'>Single-session safety</a></li>
             <li><a href='#messages'>Connection messages</a></li>
             <li><a href='#files'>Files and logs</a></li>
+            <li><a href='#server-mode'>Server mode</a></li>
+            <li><a href='#server-setup'>Sharing a COM port</a></li>
+            <li><a href='#server-reference'>Server ports reference</a></li>
+            <li><a href='#server-changes'>What it changes on the PC</a></li>
+            <li><a href='#monitoring'>Monitoring shared ports</a></li>
             <li><a href='#editions'>Editions</a></li>
-            <li><a href='#server-mode'>Server mode (planned)</a></li>
             <li><a href='#security'>Security</a></li>
           </ul>
         </div>
@@ -72,7 +77,7 @@
         <section id='what' class='section'>
           <p class='section-label'>Overview</p>
           <h2>What it does.</h2>
-          <p>Many devices now sit on a network but still speak their original serial protocol on a raw TCP port, while the software that configures them still expects a COM port. The bridge creates a virtual COM port for each device and, when you start it, connects that port to the device's TCP port.</p>
+          <p>Many devices now sit on a network but still speak their original serial protocol on a raw TCP port, while the software that configures them still expects a COM port. In <strong>client mode</strong>, the bridge creates a virtual COM port for each device and, when you start it, connects that port to the device's TCP port. <a href='#server-mode'>Server mode</a>, further down, is the reverse.</p>
           <figure class='diagram'>
             <svg viewBox='0 0 960 190' role='img' aria-labelledby='bridge-title bridge-desc'>
               <title id='bridge-title'>How the bridge connects a serial application to a networked device</title>
@@ -170,7 +175,8 @@
                 <tr><td><strong>Settings → Open log file / log folder / configuration folder</strong></td><td>Opens today's log, the log folder, or the folder holding <code>config.json</code>.</td></tr>
                 <tr><td><strong>Start → COMn → address:port</strong></td><td>Starts that profile. Only enabled profiles are listed, each with its state: Stopped, Starting…, Connected, or the last outcome, such as "Last attempt: in use". Hover over a failed one to see why.</td></tr>
                 <tr><td><strong>COMn — state</strong></td><td>One entry per active connection, with <strong>Disconnect</strong> (or <strong>Cancel</strong> while connecting) and live details: the target, status, the port settings your application chose, how long it's been connected, and bytes each way.</td></tr>
-                <tr><td><strong>Exit</strong></td><td>Closes every connection cleanly, releases the ports and quits. If Settings has unsaved changes, you're asked first.</td></tr>
+                <tr><td><strong>Server</strong></td><td>Shown when server mode is on or its service is installed: the service's state, each shared port's status and latest event, <strong>Server settings…</strong> and <strong>Open server log folder</strong>.</td></tr>
+                <tr><td><strong>Exit</strong></td><td>Closes every connection cleanly, releases the ports and quits. If Settings has unsaved changes, you're asked first. Shared ports keep working: the service doesn't depend on the tray app.</td></tr>
               </tbody>
             </table>
           </div>
@@ -276,6 +282,151 @@
           <p class='section-note'>Other editions use their own folder and log names; NovaStar Proxy, for example, uses <code>NovaStarProxy</code> and <code>novastar-proxy-YYYYMMDD.log</code>.</p>
         </section>
 
+        <section id='server-mode' class='section'>
+          <p class='section-label'>Server mode</p>
+          <h2>Share a real COM port on the network.</h2>
+          <p>Server mode is the reverse of client mode. A COM port on this PC, typically a USB-attached device, listens on its own TCP port, and whatever connects to that port talks to the device. Clients can be another PC running the bridge in client mode, a monitoring system, or any program that opens a raw TCP connection.</p>
+          <figure class='diagram'>
+            <svg viewBox='0 0 960 190' role='img' aria-labelledby='server-title server-desc'>
+              <title id='server-title'>How server mode shares a COM port</title>
+              <desc id='server-desc'>A client on another PC connects to TCP port 4003 on the host. The bridge service on the host passes the bytes to and from COM3, where the device is attached.</desc>
+              <defs>
+                <marker id='arrow2' viewBox='0 0 10 10' refX='9' refY='5' markerWidth='7' markerHeight='7' orient='auto-start-reverse'>
+                  <path d='M0,0 L10,5 L0,10 z' fill='#373737'/>
+                </marker>
+              </defs>
+              <g font-family='Calibri, Helvetica, Arial, sans-serif' text-anchor='middle'>
+                <rect x='10' y='45' width='200' height='100' fill='#373737'/>
+                <text x='110' y='85' fill='#ffffff' font-size='17' font-weight='700'>Client</text>
+                <text x='110' y='108' fill='#d0d0d0' font-size='14'>bridge in client mode,</text>
+                <text x='110' y='126' fill='#d0d0d0' font-size='14'>monitoring, any TCP client</text>
+
+                <rect x='330' y='30' width='300' height='130' fill='#0f79d0'/>
+                <text x='480' y='68' fill='#ffffff' font-size='17' font-weight='700'>Bridge service on the host</text>
+                <text x='480' y='94' fill='#ffffff' font-size='14'>one listener per shared port</text>
+                <text x='480' y='114' fill='#ffffff' font-size='14'>one client at a time</text>
+                <text x='480' y='134' fill='#ffffff' font-size='14'>fixed baud rate and format</text>
+
+                <rect x='750' y='45' width='200' height='100' fill='#373737'/>
+                <text x='850' y='88' fill='#ffffff' font-size='17' font-weight='700'>Device</text>
+                <text x='850' y='112' fill='#d0d0d0' font-size='14'>USB or RS-232</text>
+
+                <line x1='214' y1='95' x2='326' y2='95' stroke='#373737' stroke-width='3' marker-start='url(#arrow2)' marker-end='url(#arrow2)'/>
+                <text x='270' y='82' fill='#222222' font-size='15' font-weight='700'>TCP 4003</text>
+                <line x1='634' y1='95' x2='746' y2='95' stroke='#373737' stroke-width='3' marker-start='url(#arrow2)' marker-end='url(#arrow2)'/>
+                <text x='690' y='82' fill='#222222' font-size='15' font-weight='700'>COM3</text>
+              </g>
+            </svg>
+            <figcaption>The service keeps listening with nobody logged in. The COM port is open only while a client is connected.</figcaption>
+          </figure>
+          <h3>How a shared port behaves</h3>
+          <p>A shared port behaves like a single-session serial device server, the same way devices with a built-in serial-over-TCP port do. A client that works with one works with the other, and monitoring checks can be reused.</p>
+          <div class='table-wrap'>
+            <table>
+              <thead><tr><th scope='col'>Aspect</th><th scope='col'>Behaviour</th></tr></thead>
+              <tbody>
+                <tr><td>Protocol</td><td>Raw TCP: no handshake, banner or Telnet negotiation. Bytes pass unchanged in both directions.</td></tr>
+                <tr><td>Clients</td><td>One at a time. Any other client is accepted and closed straight away, and the current session isn't disturbed. Client mode reports this as <strong>Port in use</strong>.</td></tr>
+                <tr><td>COM port</td><td>Opened when a client connects and closed when it leaves, so other software on this PC can use it in between. DTR and RTS are raised while it's open.</td></tr>
+                <tr><td>Line settings</td><td>Fixed per port (baud rate, data bits, parity, stop bits, flow control). Raw TCP clients have no way to change them.</td></tr>
+                <tr><td>Allowed clients</td><td>Only listed addresses and ranges are served; others are closed at once. The firewall rule is limited to the same addresses.</td></tr>
+                <tr><td>Dead connections</td><td>Detected within about 30 seconds by TCP keep-alive, freeing the port for the next client.</td></tr>
+                <tr><td>Device unplugged</td><td>The client is disconnected. The next client to connect gets the device again once it's back.</td></tr>
+                <tr><td>Changes</td><td>Applied as soon as they're saved. Only the ports you changed restart; clients on other ports stay connected.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section id='server-setup' class='section'>
+          <p class='section-label'>Server mode</p>
+          <h2>Sharing a COM port.</h2>
+          <ol class='steps'>
+            <li>Put the program in <code>C:\Program Files\VCNS Virtual COM Bridge</code> and run it from there. Server mode runs it as a Windows service, so it refuses to run from a folder that standard users can change.</li>
+            <li>Plug in the device and check its COM port in Device Manager.</li>
+            <li>Open <strong>Settings → GUI…</strong>, choose the <strong>Server ports</strong> tab and tick <strong>Share COM ports on the network</strong>.</li>
+            <li>Choose <strong>Add</strong>. The row picks the next COM port that's present, a TCP port (the base plus the COM number), this PC's main network address, and that address's subnet as the allowed clients.</li>
+            <li>Adjust <strong>Allowed Clients</strong> to the PCs or ranges that should connect, and set <strong>Baud</strong>, <strong>Format</strong> and <strong>Flow Control</strong> to match the device.</li>
+            <li>Choose <strong>Save</strong> and approve the Windows prompt. The bridge installs and starts its service and adds the firewall rules, then shows <strong>"Server settings applied"</strong>.</li>
+            <li>Check the row's <strong>Status</strong> says <strong>Listening</strong>. From a client PC, <code>Test-NetConnection &lt;this PC&gt; -Port 4003</code> should succeed.</li>
+          </ol>
+          <figure class='window-mock' aria-label='Mock-up of the Server ports tab'>
+            <div class='titlebar'>VCNS Virtual COM Bridge — Settings · Server ports</div>
+            <div class='body'>
+              <p>☑ Share COM ports on the network (server mode)</p>
+              <p class='muted'>Service (VcnsVirtualComBridgeServer): running · Open server log folder</p>
+              <table>
+                <thead><tr><th>Enabled</th><th>COM Port</th><th>TCP Port</th><th>Listen On</th><th>Allowed Clients</th><th>Baud</th><th>Format</th><th>Flow Control</th><th>Status</th></tr></thead>
+                <tbody>
+                  <tr><td>☑</td><td>COM3 ▾</td><td>4003</td><td>10.20.0.5 (Ethernet) ▾</td><td>10.20.0.0/24</td><td>115200</td><td>8N1 ▾</td><td>None ▾</td><td class='muted'>10.20.0.31:51122 connected since 14:02:11</td></tr>
+                  <tr><td>☑</td><td>COM4 ▾</td><td>4004</td><td>10.20.0.5 (Ethernet) ▾</td><td>10.20.0.0/24, 10.30.0.9</td><td>9600</td><td>7E1 ▾</td><td>RTS/CTS ▾</td><td class='muted'>Listening</td></tr>
+                </tbody>
+              </table>
+              <div class='buttons'><span>Add</span><span>Remove</span></div>
+            </div>
+          </figure>
+          <p class='section-note'>Illustrative values. The tray menu's <strong>Server</strong> entry shows the same status, each port's latest event (such as a client being turned away), and a shortcut to the server log.</p>
+        </section>
+
+        <section id='server-reference' class='section'>
+          <p class='section-label'>Reference</p>
+          <h2>Server ports reference.</h2>
+          <div class='table-wrap'>
+            <table>
+              <thead><tr><th scope='col'>Column</th><th scope='col'>Meaning</th></tr></thead>
+              <tbody>
+                <tr><td><strong>Enabled</strong></td><td>Whether this port is shared. Disabled rows stay saved.</td></tr>
+                <tr><td><strong>COM Port</strong></td><td>The real COM port to share. The list shows ports present now; virtual ports can't be shared.</td></tr>
+                <tr><td><strong>TCP Port</strong></td><td>The port clients connect to. Suggested as the edition's base plus the COM number (4000 in the generic edition, so COM3 on 4003), skipping ports other programs use or Windows reserves. Editing it keeps your number.</td></tr>
+                <tr><td><strong>Listen On</strong></td><td>The local address to accept connections on: one interface (recommended) or all interfaces.</td></tr>
+                <tr><td><strong>Allowed Clients</strong></td><td>Addresses or CIDR ranges, separated by commas, e.g. <code>10.20.0.31, 10.30.0.0/24</code>. <code>0.0.0.0/0</code> allows any IPv4 client. An enabled row can't be saved with none.</td></tr>
+                <tr><td><strong>Baud</strong>, <strong>Format</strong>, <strong>Flow Control</strong></td><td>The device's line settings, e.g. 115200, 8N1, None. Flow control can be RTS/CTS or XON/XOFF.</td></tr>
+                <tr><td><strong>Status</strong></td><td>Live state from the service (see below).</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <h3>Status values</h3>
+          <div class='table-wrap'>
+            <table>
+              <thead><tr><th scope='col'>Status</th><th scope='col'>Meaning and what to do</th></tr></thead>
+              <tbody>
+                <tr><td>Listening</td><td>Ready for a client.</td></tr>
+                <tr><td>&lt;address&gt; connected since &lt;time&gt;</td><td>A client has the port. Others are turned away until it disconnects.</td></tr>
+                <tr><td>Listening; last client: COM3 isn't present…</td><td>A client connected but the device wasn't there: check it's plugged in and powered.</td></tr>
+                <tr><td>Listening; last client: COM3 is already open in another program…</td><td>Something else on this PC had the COM port. Close it.</td></tr>
+                <tr><td>Not listening: TCP port … is already in use</td><td>Another program uses that TCP port. Choose another; the service keeps retrying every 10 seconds.</td></tr>
+                <tr><td>Not listening: … isn't one of this PC's addresses</td><td>The listen address has changed or the network isn't up yet. Choose the current address, or all interfaces.</td></tr>
+                <tr><td>Not listening: Windows won't let the bridge listen…</td><td>The port is in a range Windows reserves (<code>netsh int ipv4 show excludedportrange protocol=tcp</code>). Choose another.</td></tr>
+                <tr><td>Not shared: the service is stopped</td><td>Start <em>VCNS Virtual COM Bridge server</em> in Services, or save the Server ports page again.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section id='server-changes' class='section'>
+          <p class='section-label'>Transparency</p>
+          <h2>What server mode changes on the PC.</h2>
+          <div class='definition-grid'>
+            <div><dt>Settings</dt><dd><code>%ProgramData%\VcnsVirtualComBridge\server.json</code>. Only administrators can change it; everyone can read it. The service ignores the file if anyone other than administrators owns it.</dd></div>
+            <div><dt>Service</dt><dd><em>VCNS Virtual COM Bridge server</em> (<code>VcnsVirtualComBridgeServer</code>). Runs the same program with <code>--service</code> as the low-privilege LocalService account, starts automatically, and restarts after a failure.</dd></div>
+            <div><dt>Service files</dt><dd><code>%ProgramData%\VcnsVirtualComBridge\service</code>: the server log (<code>logs\vcom-bridge-server-YYYYMMDD.log</code>, 30 days) and <code>status.json</code>. The only folder the service can write to.</dd></div>
+            <div><dt>Firewall</dt><dd>Inbound rules named <em>VCNS Virtual COM Bridge server</em>, one per shared port, limited to its TCP port, listen address, allowed clients and this program.</dd></div>
+          </div>
+          <p>Unticking <strong>Share COM ports on the network</strong> and saving removes the service and the firewall rules. The settings file stays, so ticking it again restores your rows.</p>
+        </section>
+
+        <section id='monitoring' class='section'>
+          <p class='section-label'>Monitoring</p>
+          <h2>Monitoring shared ports.</h2>
+          <p>A shared port looks the same on the network as a device with its own single-session TCP port. A monitoring system that already polls such devices over TCP, for example a Zabbix template, a script or an agent check, can poll <code>&lt;host&gt;:&lt;TCP port&gt;</code> the same way. Usually only the host address and port change.</p>
+          <ul class='bullets'>
+            <li><strong>One session at a time.</strong> While monitoring polls, other clients get <strong>Port in use</strong>, exactly as they would from the device itself. Pause or schedule polling around configuration work.</li>
+            <li><strong>Each poll opens the COM port.</strong> Every TCP connection opens the COM port and raises DTR and RTS; disconnecting closes it. That suits most devices, but one that resets when DTR rises would reset on every poll.</li>
+            <li><strong>Allow the monitoring server.</strong> Add its address (or the monitoring proxy's) to <strong>Allowed Clients</strong>.</li>
+            <li><strong>Watch the service too.</strong> Monitor the <code>VcnsVirtualComBridgeServer</code> Windows service, or simply the TCP port, so you know if sharing stops.</li>
+          </ul>
+        </section>
+
         <section id='editions' class='section'>
           <p class='section-label'>Editions</p>
           <h2>Branded editions.</h2>
@@ -309,38 +460,11 @@ internal static class Program
                 <tr><td><code>DefaultTargetPort</code></td><td>Filled in for new profiles</td><td>(blank)</td><td>5200</td></tr>
                 <tr><td><code>OtherClientExample</code></td><td>Named in "in use" messages</td><td>(none)</td><td>Zabbix polling</td></tr>
                 <tr><td><code>ConnectReminder</code></td><td>Optional reminder before each connection and after it ends, with a Settings check box to turn it off. In its text, <code>{endpoint}</code> and <code>{port}</code> are filled in.</td><td>(none)</td><td>Pause Zabbix polling first</td></tr>
+                <tr><td><code>ServerPortBase</code></td><td>Server mode suggests this plus the COM number as each shared port's TCP port</td><td>4000 (COM3 on 4003)</td><td>5200 (COM3 on 5203)</td></tr>
               </tbody>
             </table>
           </div>
           <p>Reference <code>src/Vcns.VirtualCom.Desktop</code> from your executable's project, for example through a git submodule. The engine embeds the signed driver package when it's available at build time; see <a href='building.html#bridge'>Build &amp; sign</a>.</p>
-        </section>
-
-        <section id='server-mode' class='section'>
-          <p class='section-label'>Roadmap</p>
-          <h2>Server mode (planned).</h2>
-          <div class='warning-callout'>
-            <h3>Not in the current build</h3>
-            <p>This section describes the design for the next stage of the bridge. It isn't available yet.</p>
-          </div>
-          <p>Today the bridge works in <strong>client mode</strong>: a virtual COM port on this PC connects out to a device's TCP port. <strong>Server mode</strong> is the reverse: real COM ports on a host, such as USB-attached devices, each listen on their own TCP port, so other PCs and monitoring systems can reach them over the network.</p>
-          <div class='card-grid'>
-            <article class='card'>
-              <h3>Behaves like a serial device server</h3>
-              <p>Raw TCP with no handshake, one client per port, and a second client accepted then closed straight away. A device exposed this way looks the same on the network as one with a built-in single-session TCP port, so the same monitoring checks work for both.</p>
-            </article>
-            <article class='card'>
-              <h3>Predictable port numbers</h3>
-              <p>Each COM port gets its own TCP port, suggested as 5200 plus the COM number: COM3 on 5203, COM4 on 5204, and so on. The base is configurable, ports already used or reserved on the host are skipped, and any number can be overridden.</p>
-            </article>
-            <article class='card'>
-              <h3>Unattended</h3>
-              <p>Runs as a Windows service, so ports stay available with nobody logged in. Each COM port is opened only while a client is connected, and serial settings are fixed per port, because raw TCP clients can't set a baud rate.</p>
-            </article>
-            <article class='card'>
-              <h3>Locked down by default</h3>
-              <p>Off until you turn it on. Each port listens on one chosen network interface, accepts only listed client addresses, and gets a firewall rule scoped to them. Changing the configuration needs administrator approval.</p>
-            </article>
-          </div>
         </section>
 
         <section id='security' class='section'>
@@ -348,9 +472,11 @@ internal static class Program
           <h2>Security.</h2>
           <ul class='bullets'>
             <li>Client mode makes outgoing connections only, to the endpoints you configure, when you start them. It opens no listening sockets and doesn't change the firewall.</li>
-            <li>The TCP link carries the device's own protocol unencrypted. Use a trusted network or a VPN.</li>
+            <li>Server mode does listen, so it's off until you turn it on. Each shared port listens on the address you choose, serves only its allowed clients, and has a firewall rule limited to them.</li>
+            <li>The TCP link carries the device's own protocol, unencrypted and usually without authentication: anyone allowed to connect to a shared port can drive the device. Keep allowed clients tight, and use a management network or a VPN.</li>
+            <li>The server runs as the low-privilege LocalService account, from a program in Program Files, with settings only administrators can change.</li>
             <li>No credentials are stored, and there's no telemetry or update check.</li>
-            <li>The tray app runs as a normal user. Creating or removing ports runs in a short-lived elevated copy of the program, one Windows prompt per change.</li>
+            <li>The tray app runs as a normal user. Creating or removing ports and changing server mode run in a short-lived elevated copy of the program, one Windows prompt per change.</li>
           </ul>
         </section>
       </main>

@@ -121,7 +121,7 @@ await Task.WhenAny(port.Stream.CopyToAsync(network), network.CopyToAsync(port.St
             <table>
               <thead><tr><th scope='col'>Project</th><th scope='col'>Contents</th></tr></thead>
               <tbody>
-                <tr><td><code>src/Vcns.VirtualCom.Bridge</code></td><td>The engine: profiles and configuration, COM-to-TCP sessions, single-session locking, in-use detection, COM port inventory and allocation, the elevated port helper, and the embedded driver package. No user interface.</td></tr>
+                <tr><td><code>src/Vcns.VirtualCom.Bridge</code></td><td>The engine: profiles and configuration, COM-to-TCP client sessions, server mode and its Windows service, single-session locking, in-use detection, COM port inventory and allocation, the elevated helper, and the embedded driver package. No user interface.</td></tr>
                 <tr><td><code>src/Vcns.VirtualCom.Desktop</code></td><td>The tray application, Settings window and dialogs. Its public entry point is <code>BridgeApp.Run(BridgeEdition, string[])</code>.</td></tr>
                 <tr><td><code>src/vcombridge</code></td><td>The generic edition, VCNS Virtual COM Bridge.</td></tr>
               </tbody>
