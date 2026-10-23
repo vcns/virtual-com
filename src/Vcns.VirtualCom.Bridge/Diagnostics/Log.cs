@@ -1,9 +1,9 @@
 using System.Text;
 
-namespace NovaStarProxy.Diagnostics;
+namespace Vcns.VirtualCom.Bridge.Diagnostics;
 
 /// <summary>
-/// Minimal thread-safe file logger. One file per day under %LOCALAPPDATA%\NovaStarProxy\logs,
+/// Minimal thread-safe file logger. One file per day, named after the edition (e.g. novastar-proxy-YYYYMMDD.log),
 /// kept for <see cref="RetentionDays"/> days. Payload bytes are only written via <see cref="Payload"/>,
 /// which callers must gate on the user's explicit opt-in.
 /// </summary>
@@ -12,6 +12,7 @@ internal static class Log
     private const int RetentionDays = 30;
     private static readonly object Gate = new();
     private static string? _directory;
+    private static string _filePrefix = BridgeEdition.Generic.LogFilePrefix;
     private static StreamWriter? _writer;
     private static DateOnly _writerDate;
 
@@ -19,11 +20,12 @@ internal static class Log
 
     public static string CurrentFile => Path.Combine(Directory, FileNameFor(DateOnly.FromDateTime(DateTime.Now)));
 
-    public static void Initialise(string directory)
+    public static void Initialise(string directory, string filePrefix)
     {
         lock (Gate)
         {
             _directory = directory;
+            _filePrefix = filePrefix;
             System.IO.Directory.CreateDirectory(directory);
         }
         PurgeOldFiles();
@@ -86,14 +88,14 @@ internal static class Log
         }
     }
 
-    private static string FileNameFor(DateOnly date) => $"novastar-proxy-{date:yyyyMMdd}.log";
+    private static string FileNameFor(DateOnly date) => $"{_filePrefix}-{date:yyyyMMdd}.log";
 
     private static void PurgeOldFiles()
     {
         try
         {
             var cutoff = DateTime.Now.AddDays(-RetentionDays);
-            foreach (var file in new DirectoryInfo(Directory).EnumerateFiles("novastar-proxy-*.log"))
+            foreach (var file in new DirectoryInfo(Directory).EnumerateFiles($"{_filePrefix}-*.log"))
             {
                 if (file.LastWriteTime < cutoff)
                     file.Delete();

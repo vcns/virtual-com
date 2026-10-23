@@ -1,18 +1,18 @@
 using System.ComponentModel;
 using System.Diagnostics;
 using Microsoft.Win32;
-using NovaStarProxy.Configuration;
-using NovaStarProxy.Diagnostics;
-using NovaStarProxy.Transport;
-using NovaStarProxy.VirtualPorts;
+using Vcns.VirtualCom.Bridge;
+using Vcns.VirtualCom.Bridge.Configuration;
+using Vcns.VirtualCom.Bridge.Diagnostics;
+using Vcns.VirtualCom.Bridge.Transport;
+using Vcns.VirtualCom.Bridge.VirtualPorts;
 
-namespace NovaStarProxy.UI;
+namespace Vcns.VirtualCom.Desktop;
 
 /// <summary>The notification-area icon, its menu, and the connection status shown to the user.</summary>
 internal sealed class TrayApplicationContext : ApplicationContext
 {
-    private const string AppName = "NovaStar Proxy";
-
+    private readonly BridgeEdition _edition;
     private readonly ConfigStore _store;
     private readonly SessionManager _sessions;
     private readonly NotifyIcon _tray;
@@ -28,13 +28,14 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private bool _lastAttemptFailed;
     private bool _exiting;
 
-    public TrayApplicationContext(ConfigStore store)
+    public TrayApplicationContext(ConfigStore store, BridgeEdition edition)
     {
         // A window-less control on the UI thread, used to marshal session events from the thread pool.
         _ = _ui.Handle;
+        _edition = edition;
         _store = store;
         _config = store.Load(out var loadWarning);
-        _sessions = new SessionManager(() => _config.Options);
+        _sessions = new SessionManager(() => _config.Options, edition);
         _sessions.SessionChanged += session => Post(() => OnSessionChanged(session));
 
         var iconSize = SystemInformation.SmallIconSize.Width;
@@ -78,7 +79,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
             return;
         }
 
-        var form = new SettingsForm(_config.Clone(), _store, _sessions, OnConfigSaved, _windowIcon);
+        var form = new SettingsForm(_config.Clone(), _store, _sessions, OnConfigSaved, _windowIcon, _edition);
         form.FormClosed += (_, _) =>
         {
             if (_settings == form)
@@ -149,7 +150,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
                 {
                     item.DropDownItems.Add(InfoItem($"Connected since {since:HH:mm:ss} ({FormatDuration(DateTimeOffset.Now - since)})"));
                     item.DropDownItems.Add(InfoItem(
-                        $"Sent to controller {FormatBytes(session.BytesToController)} · Received {FormatBytes(session.BytesFromController)}"));
+                        $"Sent to {_edition.DeviceNoun} {FormatBytes(session.BytesToRemote)} · Received {FormatBytes(session.BytesFromRemote)}"));
                 }
                 items.Add(item);
             }
@@ -183,9 +184,9 @@ internal sealed class TrayApplicationContext : ApplicationContext
             return;
         }
 
-        if (_config.Options.ShowZabbixReminder)
+        if (_edition.ConnectReminder is { } reminder && _config.Options.ShowConnectReminder)
         {
-            var (proceed, dontRemind) = Dialogs.ZabbixReminder(profile);
+            var (proceed, dontRemind) = Dialogs.ConnectReminder(reminder, profile);
             if (dontRemind)
                 SaveReminderPreference();
             if (!proceed)
@@ -206,7 +207,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
 
     private void SaveReminderPreference()
     {
-        _config.Options.ShowZabbixReminder = false;
+        _config.Options.ShowConnectReminder = false;
         try
         {
             _store.Save(_config.Clone());
@@ -223,16 +224,16 @@ internal sealed class TrayApplicationContext : ApplicationContext
         if (!_exiting && session.State == SessionState.Connected && _announcedConnected.Add(session))
         {
             _tray.ShowBalloonTip(4000, $"{port} connected",
-                $"{port} is connected to {session.Profile.Endpoint}. NovaLCT can use {port} now.", ToolTipIcon.Info);
+                $"{port} is connected to {session.Profile.Endpoint}. {_edition.SerialApplicationAtStart} can use {port} now.", ToolTipIcon.Info);
         }
 
         if (session.IsEnded && _announcedEnded.Add(session) && !_exiting)
         {
-            const string resume = "Remember to resume Zabbix polling.";
+            var resume = _edition.ConnectReminder?.AfterDisconnect ?? "";
             if (session.Outcome == SessionOutcome.StoppedByUser)
             {
                 if (session.WasConnected)
-                    _tray.ShowBalloonTip(4000, $"{port} disconnected", $"The connection to {session.Profile.Endpoint} is closed. {resume}", ToolTipIcon.Info);
+                    _tray.ShowBalloonTip(4000, $"{port} disconnected", $"The connection to {session.Profile.Endpoint} is closed. {resume}".TrimEnd(), ToolTipIcon.Info);
             }
             else if (!session.WasConnected)
             {
@@ -243,7 +244,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
             else
             {
                 _lastAttemptFailed = true;
-                _tray.ShowBalloonTip(8000, $"{port} disconnected", $"{session.OutcomeMessage} {resume}", ToolTipIcon.Warning);
+                _tray.ShowBalloonTip(8000, $"{port} disconnected", $"{session.OutcomeMessage} {resume}".TrimEnd(), ToolTipIcon.Warning);
             }
         }
         UpdateTrayStatus();
@@ -262,10 +263,10 @@ internal sealed class TrayApplicationContext : ApplicationContext
 
         var text = active.Count switch
         {
-            0 when _lastAttemptFailed => $"{AppName}\nLast connection attempt failed",
-            0 => $"{AppName}\nNo active connections",
-            1 => $"{AppName}\n{active[0].Profile.LocalComPort} {StateLabel(active[0]).ToLowerInvariant()}: {active[0].Profile.Endpoint}",
-            _ => $"{AppName}\n{connected} connected, {active.Count - connected} starting or closing",
+            0 when _lastAttemptFailed => $"{_edition.ProductName}\nLast connection attempt failed",
+            0 => $"{_edition.ProductName}\nNo active connections",
+            1 => $"{_edition.ProductName}\n{active[0].Profile.LocalComPort} {StateLabel(active[0]).ToLowerInvariant()}: {active[0].Profile.Endpoint}",
+            _ => $"{_edition.ProductName}\n{connected} connected, {active.Count - connected} starting or closing",
         };
         _tray.Icon = _trayIcons[status];
         _tray.Text = text.Length > 127 ? text[..127] : text;
@@ -287,7 +288,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
             _exiting = true;
             var count = _sessions.ActiveSessions.Count;
             Log.Info(count == 0 ? "Exit requested." : $"Exit requested; closing {count} active session(s).");
-            _tray.Text = $"{AppName}\nClosing…";
+            _tray.Text = $"{_edition.ProductName}\nClosing…";
             await _sessions.StopAllAsync(TimeSpan.FromSeconds(5));
             _tray.Visible = false;
             ExitThread();
@@ -360,7 +361,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         _ => "Failed",
     };
 
-    private static string OutcomeLabel(SessionOutcome outcome) => outcome switch
+    private string OutcomeLabel(SessionOutcome outcome) => outcome switch
     {
         SessionOutcome.StoppedByUser => "Stopped",
         SessionOutcome.InUse => "Last attempt: in use",
@@ -369,7 +370,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         SessionOutcome.HostNotFound => "Last attempt: host not found",
         SessionOutcome.Unreachable => "Last attempt: unreachable",
         SessionOutcome.VirtualPortError => "Last attempt: virtual port error",
-        SessionOutcome.ClosedByController => "Closed by controller",
+        SessionOutcome.ClosedByRemote => $"Closed by {_edition.DeviceNoun}",
         SessionOutcome.ConnectionLost => "Connection lost",
         _ => "Last attempt failed",
     };

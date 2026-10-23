@@ -1,6 +1,6 @@
-using NovaStarProxy.Transport;
+using Vcns.VirtualCom.Bridge.Transport;
 
-namespace NovaStarProxy.Tests;
+namespace Vcns.VirtualCom.Bridge.Tests;
 
 /// <summary>A stand-in for the proxy's side of a virtual port that records modem-line changes.</summary>
 internal sealed class TestEndpoint(Stream stream) : IPortEndpoint

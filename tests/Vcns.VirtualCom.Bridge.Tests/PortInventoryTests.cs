@@ -1,8 +1,8 @@
-using NovaStarProxy.Configuration;
-using NovaStarProxy.Transport;
-using NovaStarProxy.VirtualPorts;
+using Vcns.VirtualCom.Bridge.Configuration;
+using Vcns.VirtualCom.Bridge.Transport;
+using Vcns.VirtualCom.Bridge.VirtualPorts;
 
-namespace NovaStarProxy.Tests;
+namespace Vcns.VirtualCom.Bridge.Tests;
 
 public class PortInventoryTests
 {

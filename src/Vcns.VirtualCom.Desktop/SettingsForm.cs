@@ -1,16 +1,18 @@
 using System.Diagnostics;
 using System.Globalization;
-using NovaStarProxy.Configuration;
-using NovaStarProxy.Diagnostics;
-using NovaStarProxy.Transport;
-using NovaStarProxy.VirtualPorts;
+using Vcns.VirtualCom.Bridge;
+using Vcns.VirtualCom.Bridge.Configuration;
+using Vcns.VirtualCom.Bridge.Diagnostics;
+using Vcns.VirtualCom.Bridge.Transport;
+using Vcns.VirtualCom.Bridge.VirtualPorts;
 
-namespace NovaStarProxy.UI;
+namespace Vcns.VirtualCom.Desktop;
 
 /// <summary>Edits connection profiles and options. Changes take effect only when saved.</summary>
 internal sealed class SettingsForm : Form
 {
-    private const string BaseTitle = "NovaStar Proxy — Settings";
+    private readonly BridgeEdition _edition;
+    private string BaseTitle => $"{_edition.ProductName} — Settings";
 
     private readonly ConfigStore _store;
     private readonly SessionManager _sessions;
@@ -38,12 +40,13 @@ internal sealed class SettingsForm : Form
     private readonly NumericUpDown _connectTimeout = new();
     private readonly NumericUpDown _releaseInterval = new();
     private readonly NumericUpDown _inUseWindow = new();
-    private readonly CheckBox _zabbixReminder = new();
+    private readonly CheckBox _connectReminder = new();
     private readonly CheckBox _logPayload = new();
     private readonly ToolTip _toolTip = new();
 
-    public SettingsForm(AppConfig saved, ConfigStore store, SessionManager sessions, Action<AppConfig> onSaved, Icon icon)
+    public SettingsForm(AppConfig saved, ConfigStore store, SessionManager sessions, Action<AppConfig> onSaved, Icon icon, BridgeEdition edition)
     {
+        _edition = edition;
         _saved = saved;
         _store = store;
         _sessions = sessions;
@@ -74,7 +77,7 @@ internal sealed class SettingsForm : Form
         {
             AutoSize = true,
             Margin = new Padding(0, 0, 0, 6),
-            Text = "Each row maps one local virtual COM port, which NovaLCT opens, to one controller endpoint. "
+            Text = $"Each row maps one local virtual COM port, which {_edition.SerialApplication} opens, to one {_edition.DeviceNoun} endpoint. "
                 + "Nothing connects until you start a profile from the tray menu (Start → COMx).",
         };
 
@@ -150,15 +153,17 @@ internal sealed class SettingsForm : Form
         _serverColumn.HeaderText = "Target Server";
         _serverColumn.FillWeight = 24;
         _serverColumn.MaxInputLength = 253;
-        _serverColumn.ToolTipText = "IP address or host name of the NovaStar controller.";
+        _serverColumn.ToolTipText = $"IP address or host name of the {_edition.DeviceNoun}.";
         _portColumn.HeaderText = "Target Port";
         _portColumn.FillWeight = 9;
         _portColumn.MaxInputLength = 5;
-        _portColumn.ToolTipText = "TCP port on the controller, normally 5200.";
+        _portColumn.ToolTipText = _edition.DefaultTargetPort is { } usual
+            ? $"TCP port on the {_edition.DeviceNoun}, normally {usual}."
+            : $"TCP port on the {_edition.DeviceNoun}.";
         _comColumn.HeaderText = "Local COM Port";
         _comColumn.FillWeight = 12;
         _comColumn.DisplayStyle = DataGridViewComboBoxDisplayStyle.DropDownButton;
-        _comColumn.ToolTipText = "The virtual COM port NovaLCT opens. New numbers are chosen above every port already used on this PC.";
+        _comColumn.ToolTipText = $"The virtual COM port {_edition.SerialApplication} opens. New numbers are chosen above every port already used on this PC.";
         _statusColumn.HeaderText = "Virtual Port";
         _statusColumn.FillWeight = 33;
         _statusColumn.ReadOnly = true;
@@ -204,16 +209,18 @@ internal sealed class SettingsForm : Form
             number.ValueChanged += (_, _) => { if (!_loading) MarkDirty(); };
         }
 
-        _zabbixReminder.Text = "Remind me to pause Zabbix polling before connecting";
-        _zabbixReminder.AutoSize = true;
-        _logPayload.Text = "Log forwarded data in hex (troubleshooting only: may record controller configuration)";
+        var device = _edition.DeviceNoun;
+        _connectReminder.Text = _edition.ConnectReminder?.OptionLabel ?? "";
+        _connectReminder.AutoSize = true;
+        _logPayload.Text = $"Log forwarded data in hex (troubleshooting only: may record {device} configuration)";
         _logPayload.AutoSize = true;
-        foreach (var check in new[] { _zabbixReminder, _logPayload })
+        foreach (var check in new[] { _connectReminder, _logPayload })
             check.CheckedChanged += (_, _) => { if (!_loading) MarkDirty(); };
 
-        _toolTip.SetToolTip(_connectTimeout, "How long to wait for the controller to accept a connection.");
-        _toolTip.SetToolTip(_releaseInterval, "After a session to a controller closes, wait this long before connecting to it again so it can release the session.");
-        _toolTip.SetToolTip(_inUseWindow, "If the controller closes a new connection within this time, it is reported as in use by another client (e.g. Zabbix).");
+        _toolTip.SetToolTip(_connectTimeout, $"How long to wait for the {device} to accept a connection.");
+        _toolTip.SetToolTip(_releaseInterval, $"After a session to a {device} closes, wait this long before connecting to it again so it can release the session.");
+        _toolTip.SetToolTip(_inUseWindow, $"If the {device} closes a new connection within this time, it is reported as in use by another client"
+            + (_edition.OtherClientExample is { } example ? $" (e.g. {example})." : "."));
 
         var table = new TableLayoutPanel { AutoSize = true, Dock = DockStyle.Fill, ColumnCount = 4, RowCount = 3 };
         table.Controls.Add(OptionLabel("Connect timeout (seconds):"), 0, 0);
@@ -222,8 +229,11 @@ internal sealed class SettingsForm : Form
         table.Controls.Add(_releaseInterval, 3, 0);
         table.Controls.Add(OptionLabel("In-use detection window (milliseconds):"), 0, 1);
         table.Controls.Add(_inUseWindow, 1, 1);
-        table.Controls.Add(_zabbixReminder, 0, 2);
-        table.SetColumnSpan(_zabbixReminder, 2);
+        if (_edition.ConnectReminder is not null)
+        {
+            table.Controls.Add(_connectReminder, 0, 2);
+            table.SetColumnSpan(_connectReminder, 2);
+        }
         table.Controls.Add(_logPayload, 2, 2);
         table.SetColumnSpan(_logPayload, 2);
 
@@ -262,7 +272,7 @@ internal sealed class SettingsForm : Form
             _connectTimeout.Value = Math.Clamp(options.ConnectTimeoutSeconds, (int)_connectTimeout.Minimum, (int)_connectTimeout.Maximum);
             _releaseInterval.Value = Math.Clamp(options.ReleaseIntervalSeconds, (int)_releaseInterval.Minimum, (int)_releaseInterval.Maximum);
             _inUseWindow.Value = Math.Clamp(options.InUseDetectionMilliseconds, (int)_inUseWindow.Minimum, (int)_inUseWindow.Maximum);
-            _zabbixReminder.Checked = options.ShowZabbixReminder;
+            _connectReminder.Checked = options.ShowConnectReminder;
             _logPayload.Checked = options.LogPayload;
         }
         finally
@@ -348,7 +358,7 @@ internal sealed class SettingsForm : Form
         _loading = true;
         try
         {
-            row = _grid.Rows[_grid.Rows.Add(true, "", "5200", next, "", "")];
+            row = _grid.Rows[_grid.Rows.Add(true, "", _edition.DefaultTargetPort?.ToString(CultureInfo.InvariantCulture) ?? "", next, "", "")];
             row.Tag = Guid.NewGuid();
         }
         finally
@@ -427,7 +437,7 @@ internal sealed class SettingsForm : Form
                 ConnectTimeoutSeconds = (int)_connectTimeout.Value,
                 ReleaseIntervalSeconds = (int)_releaseInterval.Value,
                 InUseDetectionMilliseconds = (int)_inUseWindow.Value,
-                ShowZabbixReminder = _zabbixReminder.Checked,
+                ShowConnectReminder = _connectReminder.Checked,
                 LogPayload = _logPayload.Checked,
                 SetupcPath = _saved.Options.SetupcPath,
             },
@@ -530,8 +540,8 @@ internal sealed class SettingsForm : Form
     private bool ConfirmCreate(IReadOnlyList<string> ports) => Dialogs.Confirm(
         $"Create virtual port{(ports.Count > 1 ? "s" : "")} {string.Join(", ", ports)}?",
         (_inventory!.VcnsDriverAvailable
-            ? "NovaLCT opens the COM port and the proxy connects to its other end. The virtual COM driver is installed with it if needed. "
-            : "Each one is a com0com port pair: NovaLCT uses the COM port, and the proxy uses the hidden other end. ")
+            ? $"{_edition.SerialApplicationAtStart} opens the COM port and the proxy connects to its other end. The virtual COM driver is installed with it if needed. "
+            : $"Each one is a com0com port pair: {_edition.SerialApplication} uses the COM port, and the proxy uses the hidden other end. ")
             + "Existing COM ports are not changed. Windows will ask for administrator approval.",
         "Create", requiresAdmin: true, owner: this);
 
@@ -573,7 +583,7 @@ internal sealed class SettingsForm : Form
         else if (notRunning.Count > 0)
         {
             Dialogs.Error($"{string.Join(", ", notRunning)} created, but Windows hasn't started it",
-                "The port exists, but its driver isn't running, so NovaLCT won't see it. In Device Manager, a warning icon with "
+                $"The port exists, but its driver isn't running, so {_edition.SerialApplication} won't see it. In Device Manager, a warning icon with "
                 + "Code 52 means Windows rejected the driver's signature. See \"Troubleshooting\" in the installation guide.",
                 result.Log.Trim(), this);
         }
@@ -684,7 +694,7 @@ internal sealed class SettingsForm : Form
         if (!_dirty)
             return;
 
-        var choice = MessageBox.Show(this, "Save your changes before closing?", "NovaStar Proxy",
+        var choice = MessageBox.Show(this, "Save your changes before closing?", _edition.ProductName,
             MessageBoxButtons.YesNoCancel, MessageBoxIcon.Question);
         if (choice == DialogResult.No)
             return;

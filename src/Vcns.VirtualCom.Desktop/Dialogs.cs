@@ -1,6 +1,7 @@
-using NovaStarProxy.Configuration;
+using Vcns.VirtualCom.Bridge;
+using Vcns.VirtualCom.Bridge.Configuration;
 
-namespace NovaStarProxy.UI;
+namespace Vcns.VirtualCom.Desktop;
 
 /// <summary>
 /// Task dialogs. A tray application has no window of its own, so when no owner is given the dialog is parented to a
@@ -8,7 +9,8 @@ namespace NovaStarProxy.UI;
 /// </summary>
 internal static class Dialogs
 {
-    private const string Caption = "NovaStar Proxy";
+    /// <summary>The window title of every dialog: the edition's product name.</summary>
+    public static string Caption { get; set; } = BridgeEdition.Generic.ProductName;
 
     public static void Error(string heading, string text, string? details = null, IWin32Window? owner = null) =>
         Show(new TaskDialogPage
@@ -47,16 +49,14 @@ internal static class Dialogs
     }
 
     /// <returns>Whether to connect, and whether the user asked not to be reminded again.</returns>
-    public static (bool Proceed, bool DontRemind) ZabbixReminder(ConnectionProfile profile)
+    public static (bool Proceed, bool DontRemind) ConnectReminder(ConnectReminder reminder, ConnectionProfile profile)
     {
         var connect = new TaskDialogButton("Connect");
         var page = new TaskDialogPage
         {
             Caption = Caption,
-            Heading = "Pause Zabbix polling first",
-            Text = $"The controller at {profile.Endpoint} accepts only one TCP session at a time. "
-                + "Pause Zabbix polling for this controller before connecting, and resume it after you disconnect "
-                + $"{profile.LocalComPort}.\n\nIf Zabbix is still polling, the connection will be reported as \"in use\".",
+            Heading = reminder.Heading,
+            Text = reminder.Format(profile.Endpoint, profile.LocalComPort),
             Icon = TaskDialogIcon.Warning,
             Buttons = { connect, TaskDialogButton.Cancel },
             DefaultButton = connect,

@@ -1,7 +1,7 @@
 using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
 
-namespace NovaStarProxy.UI;
+namespace Vcns.VirtualCom.Desktop;
 
 internal enum TrayStatus
 {

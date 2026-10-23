@@ -1,18 +1,18 @@
 using System.ComponentModel;
 using System.Diagnostics.CodeAnalysis;
-using NovaStarProxy.Configuration;
-using NovaStarProxy.Diagnostics;
-using NovaStarProxy.VirtualPorts;
+using Vcns.VirtualCom.Bridge.Configuration;
+using Vcns.VirtualCom.Bridge.Diagnostics;
+using Vcns.VirtualCom.Bridge.VirtualPorts;
 using Vcns.VirtualCom;
 
-namespace NovaStarProxy.Transport;
+namespace Vcns.VirtualCom.Bridge.Transport;
 
-/// <summary>The proxy's side of a virtual COM port: the other end from the one NovaLCT opens.</summary>
+/// <summary>The proxy's side of a virtual COM port: the other end from the one the serial application opens.</summary>
 internal interface IPortEndpoint : IDisposable
 {
     Stream Stream { get; }
 
-    /// <summary>Tells the application on the COM port whether the controller link is up, where the driver allows.</summary>
+    /// <summary>Tells the application on the COM port whether the TCP link is up, where the driver allows.</summary>
     void SetLinkUp(bool up);
 
     /// <summary>What the application on the COM port is doing, for display; null if the driver can't tell.</summary>
@@ -54,7 +54,7 @@ internal sealed record PortTarget(string Description, Func<IPortEndpoint> Open)
     }
 }
 
-/// <summary>Host end of a VCNS virtual port. Holds the COM end's modem lines low until the controller link is up.</summary>
+/// <summary>Host end of a VCNS virtual port. Holds the COM end's modem lines low until the TCP link is up.</summary>
 internal sealed class VcnsEndpoint : IPortEndpoint
 {
     private readonly VirtualComHost _host;
@@ -106,7 +106,7 @@ internal sealed class SerialEndpoint(Stream stream) : IPortEndpoint
 {
     public Stream Stream { get; } = stream;
 
-    // com0com mirrors the proxy's DTR/RTS (always raised) onto NovaLCT's DSR/CTS, so there is nothing to change.
+    // com0com mirrors the proxy's DTR/RTS (always raised) onto the serial application's DSR/CTS, so there is nothing to change.
     public void SetLinkUp(bool up)
     {
     }

@@ -1,6 +1,6 @@
 using System.Reflection;
 
-namespace NovaStarProxy.VirtualPorts;
+namespace Vcns.VirtualCom.Bridge.VirtualPorts;
 
 /// <summary>
 /// The signed VCNS virtual COM driver package (vcnsvcom.inf, .dll, .cat), embedded at build time when a signed package

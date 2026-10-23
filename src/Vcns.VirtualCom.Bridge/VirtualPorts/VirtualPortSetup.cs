@@ -2,10 +2,10 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
-using NovaStarProxy.Configuration;
+using Vcns.VirtualCom.Bridge.Configuration;
 using Vcns.VirtualCom;
 
-namespace NovaStarProxy.VirtualPorts;
+namespace Vcns.VirtualCom.Bridge.VirtualPorts;
 
 /// <summary>Virtual port changes to make in one elevated run.</summary>
 internal sealed class PortJob
@@ -45,7 +45,7 @@ internal static class VirtualPortSetup
     /// <summary>Runs <paramref name="job"/> elevated and waits for it. Never throws for UAC refusal.</summary>
     public static async Task<PortJobResult> RunElevatedAsync(PortJob job)
     {
-        var directory = Path.Combine(Path.GetTempPath(), "NovaStarProxy");
+        var directory = Path.Combine(Path.GetTempPath(), "VcnsVirtualCom");
         Directory.CreateDirectory(directory);
         var jobFile = Path.Combine(directory, $"port-job-{Guid.NewGuid():N}.json");
         var resultFile = jobFile + ".result";
@@ -133,7 +133,7 @@ internal static class VirtualPortSetup
     // this build carries a newer driver.
     private static bool InstallBundledDriver(StringBuilder log)
     {
-        var directory = Path.Combine(Path.GetTempPath(), "NovaStarProxy", $"driver-{Guid.NewGuid():N}");
+        var directory = Path.Combine(Path.GetTempPath(), "VcnsVirtualCom", $"driver-{Guid.NewGuid():N}");
         try
         {
             var inf = DriverPackage.ExtractTo(directory);

@@ -16,7 +16,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\NovaStarProxy\NovaStarProxy.csproj" />
+    <ProjectReference Include="..\..\src\Vcns.VirtualCom.Bridge\Vcns.VirtualCom.Bridge.csproj" />
   </ItemGroup>
 
   <ItemGroup>

@@ -1,8 +1,8 @@
 using System.Text;
 using System.Text.Json;
-using NovaStarProxy.Diagnostics;
+using Vcns.VirtualCom.Bridge.Diagnostics;
 
-namespace NovaStarProxy.Configuration;
+namespace Vcns.VirtualCom.Bridge.Configuration;
 
 /// <summary>
 /// Loads and saves the JSON configuration. Saves are validated first and written to a temporary file that
@@ -109,6 +109,11 @@ internal sealed class ConfigStore(string filePath)
                 p.Id = Guid.NewGuid();
         }
         config.Options.SetupcPath = string.IsNullOrWhiteSpace(config.Options.SetupcPath) ? null : config.Options.SetupcPath.Trim();
+        if (config.Options.ShowZabbixReminder is { } legacy)
+        {
+            config.Options.ShowConnectReminder = legacy;
+            config.Options.ShowZabbixReminder = null;
+        }
     }
 
     private static void TryDelete(string path)

@@ -1,8 +1,8 @@
 using System.Security;
 using Microsoft.Win32;
-using NovaStarProxy.Configuration;
+using Vcns.VirtualCom.Bridge.Configuration;
 
-namespace NovaStarProxy.VirtualPorts;
+namespace Vcns.VirtualCom.Bridge.VirtualPorts;
 
 /// <summary>A com0com null-modem pair. Whatever one side writes, the other side reads.</summary>
 internal sealed record Com0comPair(int Index, string PortA, string PortB)

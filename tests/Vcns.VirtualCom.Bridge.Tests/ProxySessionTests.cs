@@ -2,11 +2,11 @@ using System.Diagnostics;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
-using NovaStarProxy.Configuration;
-using NovaStarProxy.Transport;
-using static NovaStarProxy.Tests.TestNetwork;
+using Vcns.VirtualCom.Bridge.Configuration;
+using Vcns.VirtualCom.Bridge.Transport;
+using static Vcns.VirtualCom.Bridge.Tests.TestNetwork;
 
-namespace NovaStarProxy.Tests;
+namespace Vcns.VirtualCom.Bridge.Tests;
 
 public sealed class ProxySessionTests : IAsyncDisposable
 {
@@ -17,7 +17,7 @@ public sealed class ProxySessionTests : IAsyncDisposable
         ConnectTimeoutSeconds = 3,
         ReleaseIntervalSeconds = 0,
         InUseDetectionMilliseconds = 300,
-        ShowZabbixReminder = false,
+        ShowConnectReminder = false,
     };
 
     public async ValueTask DisposeAsync()
@@ -67,7 +67,7 @@ public sealed class ProxySessionTests : IAsyncDisposable
 
         Assert.Equal(upstream, await atController);
         Assert.Equal(downstream, await atApp);
-        await WaitUntilAsync(() => session.BytesToController == upstream.Length && session.BytesFromController == downstream.Length);
+        await WaitUntilAsync(() => session.BytesToRemote == upstream.Length && session.BytesFromRemote == downstream.Length);
 
         manager.Stop(session.Profile.Id);
         await session.Completion.WaitAsync(EndTimeout);
@@ -129,7 +129,7 @@ public sealed class ProxySessionTests : IAsyncDisposable
 
         await session.Completion.WaitAsync(EndTimeout);
         Assert.Equal(SessionState.Failed, session.State);
-        Assert.Equal(SessionOutcome.ClosedByController, session.Outcome);
+        Assert.Equal(SessionOutcome.ClosedByRemote, session.Outcome);
         Assert.True(await WaitForCloseAsync(app), "The proxy should release its end of the virtual port.");
         Assert.Empty(manager.ActiveSessions);
     }

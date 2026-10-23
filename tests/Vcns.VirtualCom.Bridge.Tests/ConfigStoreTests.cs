@@ -1,10 +1,10 @@
-using NovaStarProxy.Configuration;
+using Vcns.VirtualCom.Bridge.Configuration;
 
-namespace NovaStarProxy.Tests;
+namespace Vcns.VirtualCom.Bridge.Tests;
 
 public sealed class ConfigStoreTests : IDisposable
 {
-    private readonly string _directory = Path.Combine(Path.GetTempPath(), "NovaStarProxyTests", Guid.NewGuid().ToString("N"));
+    private readonly string _directory = Path.Combine(Path.GetTempPath(), "VcnsBridgeTests", Guid.NewGuid().ToString("N"));
 
     private string ConfigPath => Path.Combine(_directory, "config.json");
 
@@ -88,5 +88,22 @@ public sealed class ConfigStoreTests : IDisposable
         Assert.Empty(config.Profiles);
         Assert.NotNull(warning);
         Assert.Single(Directory.GetFiles(_directory, "config.invalid-*.json"));
+    }
+
+    [Fact]
+    public void NovaStar_Proxy_1_0_reminder_setting_is_carried_over()
+    {
+        Directory.CreateDirectory(_directory);
+        File.WriteAllText(ConfigPath, """{ "schemaVersion": 1, "profiles": [], "options": { "showZabbixReminder": false } }""");
+
+        var store = new ConfigStore(ConfigPath);
+        var config = store.Load(out var warning);
+        Assert.Null(warning);
+        Assert.False(config.Options.ShowConnectReminder);
+
+        store.Save(config);
+        var json = File.ReadAllText(ConfigPath);
+        Assert.Contains("\"showConnectReminder\": false", json);
+        Assert.DoesNotContain("showZabbixReminder", json);
     }
 }

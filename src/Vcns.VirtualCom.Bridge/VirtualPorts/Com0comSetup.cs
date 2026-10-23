@@ -4,9 +4,9 @@ using System.Security;
 using System.Text;
 using System.Text.Json;
 using Microsoft.Win32;
-using NovaStarProxy.Configuration;
+using Vcns.VirtualCom.Bridge.Configuration;
 
-namespace NovaStarProxy.VirtualPorts;
+namespace Vcns.VirtualCom.Bridge.VirtualPorts;
 
 /// <summary>
 /// com0com support (the fallback virtual port driver): finding its setup tool and creating or removing port pairs.
@@ -42,8 +42,8 @@ internal static class Com0comSetup
             return true;
         }
 
-        // Side A is the port NovaLCT sees. Side B, opened by the proxy, is hidden from port lists so NovaLCT
-        // doesn't offer or probe it. AllDataBits (com0com 3.x only) passes all 8 bits whatever the data-bits
+        // Side A is the port the serial application sees. Side B, opened by the proxy, is hidden from port lists so the
+        // application doesn't offer or probe it. AllDataBits (com0com 3.x only) passes all 8 bits whatever the data-bits
         // setting; 2.2.2.0 rejects it, so fall back to options that version understands.
         string[][] attempts =
         [

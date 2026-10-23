@@ -1,10 +1,10 @@
 using System.Diagnostics;
 using System.Net;
 using System.Net.Sockets;
-using NovaStarProxy.Configuration;
-using NovaStarProxy.Diagnostics;
+using Vcns.VirtualCom.Bridge.Configuration;
+using Vcns.VirtualCom.Bridge.Diagnostics;
 
-namespace NovaStarProxy.Transport;
+namespace Vcns.VirtualCom.Bridge.Transport;
 
 internal enum SessionState
 {
@@ -25,7 +25,7 @@ internal enum SessionOutcome
     HostNotFound,
     Unreachable,
     VirtualPortError,
-    ClosedByController,
+    ClosedByRemote,
     ConnectionLost,
     Error,
 }
@@ -33,10 +33,10 @@ internal enum SessionOutcome
 /// <summary>Callbacks from a session to whatever owns it (the <see cref="SessionManager"/>).</summary>
 internal interface ISessionCoordinator
 {
-    /// <summary>Atomically reserves the resolved controller addresses so no other session can use them.</summary>
+    /// <summary>Atomically reserves the resolved target addresses so no other session can use them.</summary>
     bool TryClaim(ProxySession session, IReadOnlyCollection<IPEndPoint> endpoints, out string? holder);
 
-    /// <summary>How long to wait so the controller has released a recently closed session to the same endpoint.</summary>
+    /// <summary>How long to wait so the target has released a recently closed session to the same endpoint.</summary>
     TimeSpan GetReleaseDelay(ProxySession session);
 
     void Changed(ProxySession session);
@@ -57,19 +57,21 @@ internal sealed class ProxySession
     private readonly PortTarget _target;
     private volatile IPortEndpoint? _endpoint;
     private readonly ISessionCoordinator _coordinator;
+    private readonly BridgeEdition _edition;
     private readonly CancellationTokenSource _stop = new();
     private readonly object _gate = new();
-    private long _bytesToController;
-    private long _bytesFromController;
+    private long _bytesToRemote;
+    private long _bytesFromRemote;
     private SessionState _state = SessionState.Starting;
     private string _status = "Starting…";
 
-    public ProxySession(ConnectionProfile profile, PortTarget target, ProxyOptions options, ISessionCoordinator coordinator)
+    public ProxySession(ConnectionProfile profile, PortTarget target, ProxyOptions options, ISessionCoordinator coordinator, BridgeEdition edition)
     {
         Profile = profile;
         Options = options;
         _target = target;
         _coordinator = coordinator;
+        _edition = edition;
     }
 
     public ConnectionProfile Profile { get; }
@@ -107,7 +109,7 @@ internal sealed class ProxySession
     /// <summary>The session got as far as forwarding data.</summary>
     public bool WasConnected { get; private set; }
 
-    /// <summary>A TCP connection was opened at some point, so the controller may need time to release it.</summary>
+    /// <summary>A TCP connection was opened at some point, so the target may need time to release it.</summary>
     public bool TcpOpened { get; private set; }
 
     public DateTimeOffset StartedAt { get; } = DateTimeOffset.Now;
@@ -116,9 +118,9 @@ internal sealed class ProxySession
 
     public DateTimeOffset? EndedAt { get; private set; }
 
-    public long BytesToController => Interlocked.Read(ref _bytesToController);
+    public long BytesToRemote => Interlocked.Read(ref _bytesToRemote);
 
-    public long BytesFromController => Interlocked.Read(ref _bytesFromController);
+    public long BytesFromRemote => Interlocked.Read(ref _bytesFromRemote);
 
     internal IReadOnlyCollection<IPEndPoint> ClaimedEndpoints { get; set; } = [];
 
@@ -128,9 +130,11 @@ internal sealed class ProxySession
 
     private string Endpoint => Profile.Endpoint;
 
+    private string Device => _edition.DeviceNoun;
+
     internal void Start() => Completion = Task.Run(RunAsync);
 
-    /// <summary>What NovaLCT (or whatever has the COM port open) is doing, if the driver can tell.</summary>
+    /// <summary>What the application that has the COM port open is doing, if the driver can tell.</summary>
     public string? DescribePeer()
     {
         try
@@ -171,13 +175,13 @@ internal sealed class ProxySession
             if (!_coordinator.TryClaim(this, endpoints, out var holder))
             {
                 throw new SessionFailure(SessionOutcome.InUse,
-                    $"Port in use: {Endpoint} is already connected through {holder} in this application. The controller accepts only one session at a time.");
+                    $"Port in use: {Endpoint} is already connected through {holder} in this application. The {Device} accepts only one session at a time.");
             }
 
             var delay = _coordinator.GetReleaseDelay(this);
             if (delay > TimeSpan.Zero)
             {
-                SetStatus($"Waiting {delay.TotalSeconds:0.#} s for the controller to release the previous session…");
+                SetStatus($"Waiting {delay.TotalSeconds:0.#} s for the {Device} to release the previous session…");
                 await Task.Delay(delay, ct);
             }
 
@@ -195,12 +199,12 @@ internal sealed class ProxySession
                 if (ClosedByRemoteWithin(socket, TimeSpan.FromMilliseconds(Options.InUseDetectionMilliseconds), ct))
                 {
                     throw new SessionFailure(SessionOutcome.InUse,
-                        $"Port in use: {Endpoint} accepted the connection and then closed it straight away. Another client, such as Zabbix polling, "
-                        + $"probably holds the controller's only session. Pause it, then start {Port} again.");
+                        $"Port in use: {Endpoint} accepted the connection and then closed it straight away. Another client{_edition.OtherClientClause} "
+                        + $"probably holds the {Device}'s only session. Pause it, then start {Port} again.");
                 }
             }
 
-            // Only now does NovaLCT see the "cable" (CTS, DSR, DCD) come up, where the driver supports it.
+            // Only now does the serial application see the "cable" (CTS, DSR, DCD) come up, where the driver supports it.
             RaiseLink(port);
 
             lock (_gate)
@@ -246,14 +250,14 @@ internal sealed class ProxySession
     {
         using var network = new NetworkStream(socket, ownsSocket: false);
         using var pumps = CancellationTokenSource.CreateLinkedTokenSource(ct);
-        var toController = PumpAsync(serial, network, towardController: true, pumps.Token);
-        var fromController = PumpAsync(network, serial, towardController: false, pumps.Token);
+        var toRemote = PumpAsync(serial, network, towardRemote: true, pumps.Token);
+        var fromRemote = PumpAsync(network, serial, towardRemote: false, pumps.Token);
 
-        var first = await Task.WhenAny(toController, fromController);
+        var first = await Task.WhenAny(toRemote, fromRemote);
         await pumps.CancelAsync();
         try
         {
-            await Task.WhenAll(toController, fromController).WaitAsync(PumpShutdownTimeout, CancellationToken.None);
+            await Task.WhenAll(toRemote, fromRemote).WaitAsync(PumpShutdownTimeout, CancellationToken.None);
         }
         catch (Exception)
         {
@@ -269,21 +273,21 @@ internal sealed class ProxySession
             Log.Error($"{Port}: forwarding failed", unexpected);
             throw new SessionFailure(SessionOutcome.Error, $"Forwarding stopped unexpectedly: {unexpected.Message}");
         }
-        if (first == fromController && first.IsCompletedSuccessfully)
+        if (first == fromRemote && first.IsCompletedSuccessfully)
         {
-            if (BytesFromController == 0)
+            if (BytesFromRemote == 0)
             {
                 throw new SessionFailure(SessionOutcome.InUse,
-                    $"Port in use: {Endpoint} closed the connection without sending any data. Another client, such as Zabbix polling, may hold the controller's session.");
+                    $"Port in use: {Endpoint} closed the connection without sending any data. Another client{_edition.OtherClientClause} may hold the {Device}'s session.");
             }
-            throw new SessionFailure(SessionOutcome.ClosedByController, $"{Endpoint} closed the connection.");
+            throw new SessionFailure(SessionOutcome.ClosedByRemote, $"{Endpoint} closed the connection.");
         }
         throw new SessionFailure(SessionOutcome.Error, "Forwarding stopped unexpectedly.");
     }
 
-    private async Task PumpAsync(Stream source, Stream destination, bool towardController, CancellationToken ct)
+    private async Task PumpAsync(Stream source, Stream destination, bool towardRemote, CancellationToken ct)
     {
-        var (sourceIsNetwork, direction) = towardController ? (false, "→ controller") : (true, "← controller");
+        var (sourceIsNetwork, direction) = towardRemote ? (false, $"→ {Device}") : (true, $"← {Device}");
         var buffer = new byte[BufferSize];
         while (true)
         {
@@ -299,7 +303,7 @@ internal sealed class ProxySession
 
             if (read == 0)
             {
-                // End of stream on TCP means the controller closed the connection. A serial read only returns
+                // End of stream on TCP means the target closed the connection. A serial read only returns
                 // nothing if its (very long) time-out expires, which is not an error.
                 if (sourceIsNetwork)
                     return;
@@ -318,7 +322,7 @@ internal sealed class ProxySession
             {
                 throw new PumpException(!sourceIsNetwork, ex);
             }
-            Interlocked.Add(ref towardController ? ref _bytesToController : ref _bytesFromController, read);
+            Interlocked.Add(ref towardRemote ? ref _bytesToRemote : ref _bytesFromRemote, read);
         }
     }
 
@@ -331,16 +335,16 @@ internal sealed class ProxySession
         }
 
         var socketError = (pump.InnerException as SocketException ?? pump.InnerException?.InnerException as SocketException)?.SocketErrorCode;
-        if (socketError == SocketError.ConnectionReset && BytesFromController == 0)
+        if (socketError == SocketError.ConnectionReset && BytesFromRemote == 0)
         {
             return new SessionFailure(SessionOutcome.InUse,
-                $"Port in use: {Endpoint} reset the connection without sending any data. Another client, such as Zabbix polling, may hold the controller's session.");
+                $"Port in use: {Endpoint} reset the connection without sending any data. Another client{_edition.OtherClientClause} may hold the {Device}'s session.");
         }
         return new SessionFailure(SessionOutcome.ConnectionLost, socketError switch
         {
-            SocketError.ConnectionReset => $"The connection to {Endpoint} was reset by the controller or the network.",
+            SocketError.ConnectionReset => $"The connection to {Endpoint} was reset by the {Device} or the network.",
             SocketError.TimedOut or SocketError.ConnectionAborted =>
-                $"The connection to {Endpoint} was lost: the controller stopped responding (network interrupted or controller restarted).",
+                $"The connection to {Endpoint} was lost: the {Device} stopped responding (network interrupted or {Device} restarted).",
             SocketError.NetworkDown or SocketError.NetworkUnreachable or SocketError.HostUnreachable =>
                 $"The connection to {Endpoint} was lost: the network became unavailable.",
             _ => $"The connection to {Endpoint} failed: {pump.InnerException!.Message}",
@@ -369,7 +373,7 @@ internal sealed class ProxySession
         }
         catch (Exception ex) when (ex is IOException or ObjectDisposedException or System.ComponentModel.Win32Exception)
         {
-            // Data still flows; NovaLCT just won't see the modem lines rise.
+            // Data still flows; the serial application just won't see the modem lines rise.
             Log.Warn($"{Port}: could not raise the virtual port's modem lines ({ex.Message}).");
         }
     }
@@ -421,7 +425,7 @@ internal sealed class ProxySession
         {
             socket.Dispose();
             throw new SessionFailure(SessionOutcome.TimedOut,
-                $"No response from {Endpoint} within {Options.ConnectTimeoutSeconds} s. Check that the controller is on and reachable from this PC (network, VPN, firewall).");
+                $"No response from {Endpoint} within {Options.ConnectTimeoutSeconds} s. Check that the {Device} is on and reachable from this PC (network, VPN, firewall).");
         }
         catch (SocketException ex)
         {
@@ -431,7 +435,7 @@ internal sealed class ProxySession
                 SocketError.ConnectionRefused => new SessionFailure(SessionOutcome.Refused,
                     $"{Endpoint} refused the connection. The host is reachable, but nothing is accepting connections on port {Profile.TargetPort}."),
                 SocketError.TimedOut => new SessionFailure(SessionOutcome.TimedOut,
-                    $"No response from {Endpoint}. Check that the controller is on and reachable from this PC (network, VPN, firewall)."),
+                    $"No response from {Endpoint}. Check that the {Device} is on and reachable from this PC (network, VPN, firewall)."),
                 SocketError.HostUnreachable or SocketError.NetworkUnreachable or SocketError.NetworkDown => new SessionFailure(SessionOutcome.Unreachable,
                     $"{Endpoint} is unreachable ({ex.Message}). Check the network connection or VPN."),
                 _ => new SessionFailure(SessionOutcome.ConnectionLost, $"Could not connect to {Endpoint}: {ex.Message}"),
@@ -464,7 +468,7 @@ internal sealed class ProxySession
         }
     }
 
-    /// <summary>True if the controller closes or resets the connection within <paramref name="window"/>.</summary>
+    /// <summary>True if the target closes or resets the connection within <paramref name="window"/>.</summary>
     private static bool ClosedByRemoteWithin(Socket socket, TimeSpan window, CancellationToken ct)
     {
         var deadline = Stopwatch.GetTimestamp() + (long)(window.TotalSeconds * Stopwatch.Frequency);
@@ -492,7 +496,7 @@ internal sealed class ProxySession
         try
         {
             // Send FIN and read whatever is still in flight, so Windows doesn't answer unread data with a reset and the
-            // controller sees an orderly close it can release promptly.
+            // target sees an orderly close it can release promptly.
             socket.Shutdown(SocketShutdown.Send);
             var scratch = new byte[4096];
             using var drain = new CancellationTokenSource(DrainTimeout);
@@ -537,7 +541,7 @@ internal sealed class ProxySession
 
         var duration = ConnectedAt is { } since ? $"; connected for {EndedAt - since:hh\\:mm\\:ss}" : "";
         var summary = $"{Port} → {Endpoint}: session ended ({Outcome}). {OutcomeMessage} "
-            + $"Bytes to controller: {BytesToController}, from controller: {BytesFromController}{duration}.";
+            + $"Bytes to {Device}: {BytesToRemote}, from {Device}: {BytesFromRemote}{duration}.";
         if (Outcome is SessionOutcome.StoppedByUser)
             Log.Info(summary);
         else

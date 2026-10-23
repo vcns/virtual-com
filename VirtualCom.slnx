@@ -1,9 +1,13 @@
 <Solution>
   <Folder Name="/src/">
     <Project Path="src/Vcns.VirtualCom/Vcns.VirtualCom.csproj" />
+    <Project Path="src/Vcns.VirtualCom.Bridge/Vcns.VirtualCom.Bridge.csproj" />
+    <Project Path="src/Vcns.VirtualCom.Desktop/Vcns.VirtualCom.Desktop.csproj" />
+    <Project Path="src/vcombridge/vcombridge.csproj" />
     <Project Path="src/vcomctl/vcomctl.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Vcns.VirtualCom.Tests/Vcns.VirtualCom.Tests.csproj" />
+    <Project Path="tests/Vcns.VirtualCom.Bridge.Tests/Vcns.VirtualCom.Bridge.Tests.csproj" />
   </Folder>
 </Solution>

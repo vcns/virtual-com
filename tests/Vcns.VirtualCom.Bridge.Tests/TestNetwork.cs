@@ -3,7 +3,7 @@ using System.Diagnostics;
 using System.Net;
 using System.Net.Sockets;
 
-namespace NovaStarProxy.Tests;
+namespace Vcns.VirtualCom.Bridge.Tests;
 
 /// <summary>
 /// Stand-in for the NovaPro UHD Jr's TCP port 5200: one session at a time, and any second concurrent client has its

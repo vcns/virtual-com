@@ -1,15 +1,15 @@
 using System.Net;
-using NovaStarProxy.Configuration;
-using NovaStarProxy.Diagnostics;
+using Vcns.VirtualCom.Bridge.Configuration;
+using Vcns.VirtualCom.Bridge.Diagnostics;
 
-namespace NovaStarProxy.Transport;
+namespace Vcns.VirtualCom.Bridge.Transport;
 
 internal sealed class StartRejectedException(string message) : Exception(message);
 
 internal sealed record LastOutcome(SessionOutcome Outcome, string Message, DateTimeOffset At);
 
 /// <summary>
-/// Owns the running sessions and enforces single-session access: at most one session per controller endpoint
+/// Owns the running sessions and enforces single-session access: at most one session per target endpoint
 /// (matched by configured name and by resolved address), plus a release interval after each session closes.
 /// </summary>
 internal sealed class SessionManager : ISessionCoordinator
@@ -19,10 +19,12 @@ internal sealed class SessionManager : ISessionCoordinator
     private readonly Dictionary<string, DateTimeOffset> _releasedAt = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<Guid, LastOutcome> _lastOutcomes = [];
     private readonly Func<ProxyOptions> _options;
+    private readonly BridgeEdition _edition;
 
-    public SessionManager(Func<ProxyOptions> options)
+    public SessionManager(Func<ProxyOptions> options, BridgeEdition? edition = null)
     {
         _options = options;
+        _edition = edition ?? BridgeEdition.Generic;
     }
 
     /// <summary>Raised on a thread-pool thread whenever a session's state or status text changes.</summary>
@@ -72,12 +74,12 @@ internal sealed class SessionManager : ISessionCoordinator
                 if (ConfigValidator.EndpointKey(other.Profile.TargetServer, other.Profile.TargetPort) == key)
                 {
                     throw new StartRejectedException(
-                        $"{profile.Endpoint} is already in use by {other.Profile.LocalComPort}. The controller accepts only one session at a time; "
+                        $"{profile.Endpoint} is already in use by {other.Profile.LocalComPort}. The {_edition.DeviceNoun} accepts only one session at a time; "
                         + $"disconnect {other.Profile.LocalComPort} first.");
                 }
             }
 
-            session = new ProxySession(profile.Clone(), target, _options().Clone(), this);
+            session = new ProxySession(profile.Clone(), target, _options().Clone(), this, _edition);
             _active.Add(session);
             _lastOutcomes.Remove(profile.Id);
         }

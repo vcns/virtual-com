@@ -1,11 +1,11 @@
 using System.Diagnostics;
 using System.IO.Ports;
-using NovaStarProxy.Configuration;
-using NovaStarProxy.Transport;
-using NovaStarProxy.VirtualPorts;
-using static NovaStarProxy.Tests.TestNetwork;
+using Vcns.VirtualCom.Bridge.Configuration;
+using Vcns.VirtualCom.Bridge.Transport;
+using Vcns.VirtualCom.Bridge.VirtualPorts;
+using static Vcns.VirtualCom.Bridge.Tests.TestNetwork;
 
-namespace NovaStarProxy.Tests;
+namespace Vcns.VirtualCom.Bridge.Tests;
 
 /// <summary>Runs only when VCOM_TEST_PORT names an installed VCNS virtual port, e.g. COM20.</summary>
 public sealed class VirtualPortFactAttribute : FactAttribute

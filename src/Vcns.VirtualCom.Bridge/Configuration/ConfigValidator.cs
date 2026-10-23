@@ -1,9 +1,9 @@
 using System.Net;
 using System.Net.Sockets;
 using System.Text.RegularExpressions;
-using NovaStarProxy.VirtualPorts;
+using Vcns.VirtualCom.Bridge.VirtualPorts;
 
-namespace NovaStarProxy.Configuration;
+namespace Vcns.VirtualCom.Bridge.Configuration;
 
 internal static partial class ConfigValidator
 {
@@ -24,7 +24,7 @@ internal static partial class ConfigValidator
         return match.Success && int.TryParse(match.Groups[1].Value, out number) && number <= MaxComNumber;
     }
 
-    /// <summary>Key identifying a controller endpoint for duplicate checks and session locking.</summary>
+    /// <summary>Key identifying a target endpoint for duplicate checks and session locking.</summary>
     /// <remarks>Formatted like <see cref="IPEndPoint.ToString"/> so it matches resolved addresses, but tolerates invalid ports.</remarks>
     public static string EndpointKey(string host, int port) => IPAddress.TryParse(host, out var ip)
         ? ip.AddressFamily == AddressFamily.InterNetworkV6 ? $"[{ip}]:{port}" : $"{ip}:{port}"
@@ -41,7 +41,7 @@ internal static partial class ConfigValidator
         AddDuplicates(errors, profiles, p => p.LocalComPort,
             (port, rows) => $"{port} is assigned to more than one profile (rows {rows}). Each local COM port can belong to only one profile.");
         AddDuplicates(errors, profiles, p => string.IsNullOrEmpty(p.TargetServer) ? "" : EndpointKey(p.TargetServer, p.TargetPort),
-            (_, rows) => $"Rows {rows} target the same controller endpoint. Each target server and port gets its own COM port.");
+            (_, rows) => $"Rows {rows} target the same endpoint. Each target server and port gets its own COM port.");
         AddDuplicates(errors, profiles, p => p.BridgePort ?? "",
             (port, rows) => $"Proxy-side port {port} is used by more than one profile (rows {rows}).");
 

@@ -1,7 +1,7 @@
-using NovaStarProxy.Configuration;
-using NovaStarProxy.VirtualPorts;
+using Vcns.VirtualCom.Bridge.Configuration;
+using Vcns.VirtualCom.Bridge.VirtualPorts;
 
-namespace NovaStarProxy.Tests;
+namespace Vcns.VirtualCom.Bridge.Tests;
 
 public class ConfigValidatorTests
 {
@@ -66,7 +66,7 @@ public class ConfigValidatorTests
     public void Each_endpoint_gets_its_own_com_port()
     {
         var errors = ConfigValidator.Validate(Config(Profile("Controller.example.net"), Profile("controller.example.net", com: "COM10")));
-        Assert.Contains(errors, e => e.Contains("same controller endpoint"));
+        Assert.Contains(errors, e => e.Contains("same endpoint"));
     }
 
     [Fact]

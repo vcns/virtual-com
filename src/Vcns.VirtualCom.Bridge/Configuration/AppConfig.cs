@@ -1,4 +1,6 @@
-namespace NovaStarProxy.Configuration;
+using System.Text.Json.Serialization;
+
+namespace Vcns.VirtualCom.Bridge.Configuration;
 
 internal sealed class AppConfig
 {
@@ -25,9 +27,9 @@ internal sealed class ConnectionProfile
 
     public string TargetServer { get; set; } = "";
 
-    public int TargetPort { get; set; } = 5200;
+    public int TargetPort { get; set; }
 
-    /// <summary>The port NovaLCT opens, e.g. COM9.</summary>
+    /// <summary>The port the serial application opens, e.g. COM9.</summary>
     public string LocalComPort { get; set; } = "";
 
     /// <summary>
@@ -58,14 +60,19 @@ internal sealed class ProxyOptions
     public int ReleaseIntervalSeconds { get; set; } = 2;
 
     /// <summary>
-    /// How long to watch a new connection before declaring it established. The controller closes the
+    /// How long to watch a new connection before declaring it established. A single-session device closes the
     /// socket of a second concurrent client, so a close inside this window is reported as "in use".
     /// </summary>
     public int InUseDetectionMilliseconds { get; set; } = 1500;
 
-    public bool ShowZabbixReminder { get; set; } = true;
+    /// <summary>Show the edition's <see cref="BridgeEdition.ConnectReminder"/>, if it has one, before each connection.</summary>
+    public bool ShowConnectReminder { get; set; } = true;
 
-    /// <summary>Writes every forwarded byte to the log as hex. Off by default: payloads can contain controller configuration.</summary>
+    /// <summary>The name NovaStar Proxy 1.0 saved <see cref="ShowConnectReminder"/> under. Read once, then folded into it.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? ShowZabbixReminder { get; set; }
+
+    /// <summary>Writes every forwarded byte to the log as hex. Off by default: payloads can contain device configuration.</summary>
     public bool LogPayload { get; set; }
 
     /// <summary>Optional explicit path to com0com's setupc.exe when it isn't in the default install location.</summary>

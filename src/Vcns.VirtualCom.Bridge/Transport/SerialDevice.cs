@@ -2,7 +2,7 @@ using System.ComponentModel;
 using System.Runtime.InteropServices;
 using Microsoft.Win32.SafeHandles;
 
-namespace NovaStarProxy.Transport;
+namespace Vcns.VirtualCom.Bridge.Transport;
 
 /// <summary>
 /// Opens the proxy side of a virtual serial pair as an overlapped (asynchronous) stream. System.IO.Ports is not
@@ -53,7 +53,7 @@ internal static partial class SerialDevice
         try
         {
             // The baud rate is irrelevant for a virtual null-modem (com0com ignores it unless baud emulation is
-            // switched on) and never affects the TCP side; 8N1 with DTR and RTS raised tells NovaLCT a device is there.
+            // switched on) and never affects the TCP side; 8N1 with DTR and RTS raised tells the serial application a device is there.
             SetupComm(handle, 65536, 65536);
 
             var dcb = new Dcb { DCBlength = (uint)Marshal.SizeOf<Dcb>() };
