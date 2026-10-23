@@ -18,6 +18,11 @@
     <ProjectReference Include="..\Vcns.VirtualCom\Vcns.VirtualCom.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Server mode runs as a Windows service. -->
+    <PackageReference Include="System.ServiceProcess.ServiceController" Version="10.0.0" />
+  </ItemGroup>
+
   <!--
     The VCNS virtual COM driver package is embedded when a signed build of it is available, so applications built on
     this library can install the driver themselves. Point VirtualComPackageDir at a signed package (vcnsvcom.inf, .dll,

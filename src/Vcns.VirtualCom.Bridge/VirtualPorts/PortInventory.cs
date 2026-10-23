@@ -39,6 +39,9 @@ internal sealed class RawPortData
 
 internal sealed record VcnsPortInfo(string InstanceId, string PortName, bool Running, uint ProblemCode);
 
+/// <summary>A COM port that belongs to real hardware, with its kernel device name (e.g. \Device\USBSER000).</summary>
+internal sealed record DevicePort(string PortName, string Device);
+
 /// <summary>
 /// Snapshot of the COM port numbers in use on this PC, the VCNS virtual ports and the com0com port pairs.
 /// </summary>
@@ -67,11 +70,19 @@ internal sealed class PortInventory
                 _virtualNumbers.Add(n);
         }
 
+        var devicePorts = new List<DevicePort>();
         foreach (var (device, name) in raw.SerialComm)
         {
             if (!device.StartsWith(Com0comDevicePrefix, StringComparison.OrdinalIgnoreCase) && !_vcns.ContainsKey(name))
+            {
                 AddForeign(name, $"in use by another device ({device})");
+                devicePorts.Add(new DevicePort(name, device));
+            }
         }
+        DevicePorts = devicePorts
+            .OrderBy(p => ConfigValidator.TryParseComNumber(p.PortName, out var n) ? n : int.MaxValue)
+            .ThenBy(p => p.PortName, StringComparer.OrdinalIgnoreCase)
+            .ToList();
         foreach (var (instance, name) in raw.DevicePortNames)
         {
             if (!instance.StartsWith(Com0comEnumerator, StringComparison.OrdinalIgnoreCase)
@@ -96,6 +107,9 @@ internal sealed class PortInventory
     public bool VcnsDriverAvailable { get; }
 
     public IReadOnlyCollection<VcnsPortInfo> VcnsPorts => _vcns.Values;
+
+    /// <summary>Real COM ports present right now, such as USB-attached devices: the ports server mode can share.</summary>
+    public IReadOnlyList<DevicePort> DevicePorts { get; }
 
     /// <summary>COM-named virtual ports: VCNS ports and either side of a com0com pair.</summary>
     public IEnumerable<string> VirtualComPorts =>

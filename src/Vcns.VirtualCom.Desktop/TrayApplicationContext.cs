@@ -4,6 +4,7 @@ using Microsoft.Win32;
 using Vcns.VirtualCom.Bridge;
 using Vcns.VirtualCom.Bridge.Configuration;
 using Vcns.VirtualCom.Bridge.Diagnostics;
+using Vcns.VirtualCom.Bridge.Server;
 using Vcns.VirtualCom.Bridge.Transport;
 using Vcns.VirtualCom.Bridge.VirtualPorts;
 
@@ -13,6 +14,7 @@ namespace Vcns.VirtualCom.Desktop;
 internal sealed class TrayApplicationContext : ApplicationContext
 {
     private readonly BridgeEdition _edition;
+    private readonly ServerLocations _server;
     private readonly ConfigStore _store;
     private readonly SessionManager _sessions;
     private readonly NotifyIcon _tray;
@@ -33,6 +35,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         // A window-less control on the UI thread, used to marshal session events from the thread pool.
         _ = _ui.Handle;
         _edition = edition;
+        _server = new ServerLocations(edition);
         _store = store;
         _config = store.Load(out var loadWarning);
         _sessions = new SessionManager(() => _config.Options, edition);
@@ -67,7 +70,9 @@ internal sealed class TrayApplicationContext : ApplicationContext
     /// <summary>Opens the settings window from any thread (used when the program is launched a second time).</summary>
     public void PostShowSettings() => Post(ShowSettings);
 
-    public void ShowSettings()
+    public void ShowSettings() => ShowSettings(serverPage: false);
+
+    private void ShowSettings(bool serverPage)
     {
         if (_exiting)
             return;
@@ -75,6 +80,8 @@ internal sealed class TrayApplicationContext : ApplicationContext
         {
             if (_settings.WindowState == FormWindowState.Minimized)
                 _settings.WindowState = FormWindowState.Normal;
+            if (serverPage)
+                _settings.ShowServerPage();
             _settings.Activate();
             return;
         }
@@ -86,6 +93,8 @@ internal sealed class TrayApplicationContext : ApplicationContext
                 _settings = null;
         };
         _settings = form;
+        if (serverPage)
+            form.ShowServerPage();
         form.Show();
         form.Activate();
     }
@@ -156,6 +165,12 @@ internal sealed class TrayApplicationContext : ApplicationContext
             }
         }
 
+        if (BuildServerMenu() is { } server)
+        {
+            items.Add(new ToolStripSeparator());
+            items.Add(server);
+        }
+
         items.Add(new ToolStripSeparator());
         items.Add(new ToolStripMenuItem("Exit", null, (_, _) => Exit()) { Enabled = !_exiting });
 
@@ -163,6 +178,54 @@ internal sealed class TrayApplicationContext : ApplicationContext
         _menu.Items.Clear();
         _menu.Items.AddRange(items.ToArray());
         _menu.ResumeLayout();
+    }
+
+    /// <summary>Server mode's live state, read from the service and its status file. Null when server mode isn't used.</summary>
+    private ToolStripMenuItem? BuildServerMenu()
+    {
+        ServerSnapshot snapshot;
+        try
+        {
+            snapshot = ServerSnapshot.Read(_server);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or Win32Exception)
+        {
+            return null;
+        }
+        if (!snapshot.IsConfigured)
+            return null;
+
+        var shared = snapshot.Config.Enabled ? snapshot.Config.Ports.Where(p => p.Enabled).ToList() : [];
+        var live = shared.Select(p => snapshot.StatusOf(p.ComPort)).ToList();
+        var clients = live.Count(s => s?.State == nameof(PortServerState.Connected));
+        var problems = live.Count(s => s?.State == nameof(PortServerState.NotListening)) + (snapshot.IsRunning ? 0 : shared.Count);
+        var status = problems > 0 ? TrayStatus.Error : clients > 0 ? TrayStatus.Connected : TrayStatus.Idle;
+
+        var label = !snapshot.Config.Enabled ? "Server: off"
+            : !snapshot.IsRunning ? $"Server: service {snapshot.ServiceText}"
+            : $"Server: {shared.Count} port(s) shared, {clients} client(s)";
+        var menu = new ToolStripMenuItem(label) { Image = _dots[status] };
+        menu.DropDownItems.Add(InfoItem($"Service: {snapshot.ServiceText}"));
+        foreach (var port in shared)
+        {
+            var portStatus = snapshot.StatusOf(port.ComPort);
+            menu.DropDownItems.Add(InfoItem($"{port.ComPort} on TCP {port.TcpPort} — {portStatus?.Describe() ?? "not shared"}"));
+            if (portStatus?.LastEvent is { } lastEvent)
+                menu.DropDownItems.Add(InfoItem($"      {lastEvent}"));
+        }
+        menu.DropDownItems.Add(new ToolStripSeparator());
+        menu.DropDownItems.Add(new ToolStripMenuItem("Server settings…", null, (_, _) => ShowSettings(serverPage: true)) { Enabled = !_exiting });
+        menu.DropDownItems.Add(new ToolStripMenuItem("Open server log folder", null, (_, _) => OpenServerLogs()));
+        return menu;
+    }
+
+    // Only the service and administrators can create folders under %ProgramData%, so don't try.
+    private void OpenServerLogs()
+    {
+        if (Directory.Exists(_server.LogDirectory))
+            Process.Start("explorer.exe", $"\"{_server.LogDirectory}\"");
+        else
+            Dialogs.Info("No server log yet", $"The service hasn't written a log yet. It will appear in {_server.LogDirectory}.");
     }
 
     private void StartProfile(Guid profileId)

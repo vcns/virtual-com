@@ -33,6 +33,12 @@ public sealed record BridgeEdition
     /// <summary>Shown before each connection unless the user turns it off. Null for none.</summary>
     public ConnectReminder? ConnectReminder { get; init; }
 
+    /// <summary>
+    /// Server mode suggests this plus the COM number as each shared port's TCP port: with 4000, COM3 is shared on
+    /// 4003, the numbering serial device servers commonly use.
+    /// </summary>
+    public int ServerPortBase { get; init; } = 4000;
+
     public static BridgeEdition Generic { get; } = new()
     {
         ProductName = "VCNS Virtual COM Bridge",

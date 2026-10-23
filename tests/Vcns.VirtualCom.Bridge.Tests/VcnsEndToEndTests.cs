@@ -17,10 +17,18 @@ public sealed class VirtualPortFactAttribute : FactAttribute
     }
 }
 
+/// <summary>Tests that use the real test port run one at a time: each one opens its ends.</summary>
+[CollectionDefinition(Name, DisableParallelization = true)]
+public sealed class VirtualPortCollection
+{
+    public const string Name = "Real virtual port";
+}
+
 /// <summary>
 /// The whole chain over the real driver: a System.IO.Ports client on the virtual COM port (as NovaLCT would be),
 /// the proxy, TCP, and a fake controller.
 /// </summary>
+[Collection(VirtualPortCollection.Name)]
 public sealed class VcnsEndToEndTests
 {
     private static readonly string PortName = Environment.GetEnvironmentVariable("VCOM_TEST_PORT") ?? "";

@@ -1,8 +1,10 @@
 using System.Reflection;
 using System.Runtime.InteropServices;
+using System.ServiceProcess;
 using Vcns.VirtualCom.Bridge;
 using Vcns.VirtualCom.Bridge.Configuration;
 using Vcns.VirtualCom.Bridge.Diagnostics;
+using Vcns.VirtualCom.Bridge.Server;
 using Vcns.VirtualCom.Bridge.VirtualPorts;
 
 namespace Vcns.VirtualCom.Desktop;
@@ -15,9 +17,17 @@ public static class BridgeApp
 {
     public static int Run(BridgeEdition edition, string[] args)
     {
-        // Elevated helper mode: create or remove virtual ports, then exit. No UI, no single-instance lock.
+        // Elevated helper mode: create or remove virtual ports, or apply server settings, then exit. No UI, no
+        // single-instance lock.
         if (args.Length == 2 && args[0] == VirtualPortSetup.TaskArgument)
-            return VirtualPortSetup.RunTask(args[1]);
+            return VirtualPortSetup.RunTask(args[1], edition);
+
+        // Started by the service control manager: server mode, with no UI.
+        if (args.Length == 1 && args[0] == BridgeService.Argument)
+        {
+            ServiceBase.Run(new BridgeService(edition));
+            return 0;
+        }
 
         using var instance = new Mutex(initiallyOwned: true, $@"Local\{edition.DataFolderName}.Instance", out var isFirstInstance);
         var showSettingsEventName = $@"Local\{edition.DataFolderName}.ShowSettings";

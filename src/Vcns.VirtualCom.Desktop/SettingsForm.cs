@@ -3,12 +3,13 @@ using System.Globalization;
 using Vcns.VirtualCom.Bridge;
 using Vcns.VirtualCom.Bridge.Configuration;
 using Vcns.VirtualCom.Bridge.Diagnostics;
+using Vcns.VirtualCom.Bridge.Server;
 using Vcns.VirtualCom.Bridge.Transport;
 using Vcns.VirtualCom.Bridge.VirtualPorts;
 
 namespace Vcns.VirtualCom.Desktop;
 
-/// <summary>Edits connection profiles and options. Changes take effect only when saved.</summary>
+/// <summary>Edits connection profiles, options and server ports. Changes take effect only when saved.</summary>
 internal sealed class SettingsForm : Form
 {
     private readonly BridgeEdition _edition;
@@ -17,9 +18,12 @@ internal sealed class SettingsForm : Form
     private readonly ConfigStore _store;
     private readonly SessionManager _sessions;
     private readonly Action<AppConfig> _onSaved;
+    private readonly ServerSettingsPanel _serverPanel;
+    private readonly TabControl _tabs = new();
     private AppConfig _saved;
     private PortInventory? _inventory;
     private bool _dirty;
+    private bool _serverDirty;
     private bool _loading;
     private bool _busy;
 
@@ -52,11 +56,21 @@ internal sealed class SettingsForm : Form
         _sessions = sessions;
         _onSaved = onSaved;
         Icon = icon;
+        _serverPanel = new ServerSettingsPanel(edition, MarkServerDirty);
 
         BuildLayout();
         LoadFrom(saved);
+        var server = ServerConfigStore.Load(new ServerLocations(edition).ConfigFile, out var serverWarning);
+        _serverPanel.LoadFrom(server);
+        _serverDirty = false;
+        UpdateTitle();
 
-        Load += async (_, _) => await RefreshInventoryAsync();
+        Load += async (_, _) =>
+        {
+            if (serverWarning is not null)
+                Dialogs.Error("Server settings problem", serverWarning + " Saving the Server ports page replaces the file.", owner: this);
+            await RefreshInventoryAsync();
+        };
         FormClosing += OnFormClosing;
         _sessions.SessionChanged += OnSessionChanged;
         FormClosed += (_, _) => _sessions.SessionChanged -= OnSessionChanged;
@@ -68,8 +82,8 @@ internal sealed class SettingsForm : Form
         Text = BaseTitle;
         AutoScaleMode = AutoScaleMode.Dpi;
         AutoScaleDimensions = new SizeF(96F, 96F);
-        ClientSize = new Size(980, 580);
-        MinimumSize = new Size(780, 480);
+        ClientSize = new Size(1060, 620);
+        MinimumSize = new Size(820, 520);
         StartPosition = FormStartPosition.CenterScreen;
         Padding = new Padding(12);
 
@@ -113,20 +127,29 @@ internal sealed class SettingsForm : Form
         };
         bottom.Controls.AddRange([_closeButton, _saveButton]);
 
-        var root = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 6 };
+        var client = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 5, Padding = new Padding(6) };
+        client.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        client.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        client.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        client.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+        client.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        client.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        client.Controls.Add(intro, 0, 0);
+        client.Controls.Add(driverRow, 0, 1);
+        client.Controls.Add(_grid, 0, 2);
+        client.Controls.Add(gridButtons, 0, 3);
+        client.Controls.Add(options, 0, 4);
+
+        _tabs.Dock = DockStyle.Fill;
+        _tabs.TabPages.Add(new TabPage("Client profiles") { Controls = { client } });
+        _tabs.TabPages.Add(new TabPage("Server ports") { Controls = { _serverPanel } });
+
+        var root = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 2 };
         root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-        root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-        root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         root.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
         root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-        root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-        root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-        root.Controls.Add(intro, 0, 0);
-        root.Controls.Add(driverRow, 0, 1);
-        root.Controls.Add(_grid, 0, 2);
-        root.Controls.Add(gridButtons, 0, 3);
-        root.Controls.Add(options, 0, 4);
-        root.Controls.Add(bottom, 0, 5);
+        root.Controls.Add(_tabs, 0, 0);
+        root.Controls.Add(bottom, 0, 1);
         Controls.Add(root);
         CancelButton = _closeButton;
         ResumeLayout(performLayout: true);
@@ -287,9 +310,10 @@ internal sealed class SettingsForm : Form
     private async Task RefreshInventoryAsync()
     {
         _driverStatus.Text = "Checking COM ports…";
+        IReadOnlySet<int> takenTcp;
         try
         {
-            _inventory = await Task.Run(() => PortInventory.Capture());
+            (_inventory, takenTcp) = await Task.Run(() => (PortInventory.Capture(), (IReadOnlySet<int>)TcpPortSuggester.TakenOnThisPc()));
         }
         catch (Exception ex)
         {
@@ -316,7 +340,11 @@ internal sealed class SettingsForm : Form
 
         SetComChoices([]);
         RefreshRowStates();
+        _serverPanel.SetInventory(_inventory, takenTcp);
     }
+
+    /// <summary>Brings the Server ports page to the front, e.g. when opened from the tray's Server menu.</summary>
+    public void ShowServerPage() => _tabs.SelectedIndex = 1;
 
     /// <summary>
     /// Fills the COM drop-down with the ports already in use by rows, existing virtual ports, and a few free numbers
@@ -401,29 +429,57 @@ internal sealed class SettingsForm : Form
         errors.AddRange(ConfigValidator.ValidateActiveChanges(config, _sessions.ActiveSessions.Select(s => s.Profile)));
         if (_inventory is not null)
             errors.AddRange(ConfigValidator.ValidatePorts(config, _inventory));
+
+        ServerConfig? server = null;
+        if (_serverDirty)
+        {
+            if (!_serverPanel.TryBuild(out server, out var serverErrors))
+                errors.AddRange(serverErrors);
+            else
+            {
+                errors.AddRange(ServerConfigValidator.Validate(server));
+                if (_inventory is not null)
+                    errors.AddRange(ServerConfigValidator.ValidatePorts(server, _inventory));
+            }
+        }
         if (errors.Count > 0)
         {
             ShowErrors(errors);
             return false;
         }
 
-        try
+        if (_dirty)
         {
-            _store.Save(config);
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ConfigValidationException)
-        {
-            Log.Error("Saving the configuration failed", ex);
-            Dialogs.Error("Couldn't save the configuration", $"{ex.Message}\n\nThe previously saved configuration has not been changed.", owner: this);
-            return false;
+            try
+            {
+                _store.Save(config);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ConfigValidationException)
+            {
+                Log.Error("Saving the configuration failed", ex);
+                Dialogs.Error("Couldn't save the configuration", $"{ex.Message}\n\nThe previously saved configuration has not been changed.", owner: this);
+                return false;
+            }
+
+            var previous = _saved;
+            _saved = config.Clone();
+            _dirty = false;
+            UpdateTitle();
+            _onSaved(config.Clone());
+            await OfferVirtualPortChangesAsync(previous, config);
         }
 
-        var previous = _saved;
-        _saved = config.Clone();
-        _dirty = false;
-        UpdateTitle();
-        _onSaved(config.Clone());
-        await OfferVirtualPortChangesAsync(previous, config);
+        if (server is not null)
+        {
+            var result = await RunJobAsync(new PortJob { Server = server });
+            if (result.Succeeded)
+            {
+                _serverDirty = false;
+                UpdateTitle();
+            }
+            _serverPanel.RefreshStatus();
+            return result.Succeeded;
+        }
         return true;
     }
 
@@ -545,7 +601,7 @@ internal sealed class SettingsForm : Form
             + "Existing COM ports are not changed. Windows will ask for administrator approval.",
         "Create", requiresAdmin: true, owner: this);
 
-    private async Task RunJobAsync(PortJob job)
+    private async Task<PortJobResult> RunJobAsync(PortJob job)
     {
         SetBusy(true);
         _driverStatus.Text = "Waiting for administrator approval…";
@@ -565,8 +621,8 @@ internal sealed class SettingsForm : Form
 
         var created = job.CreateVcns.Concat(job.CreateCom0com).ToList();
         var removed = job.RemoveVcns.Concat(job.RemoveCom0comPairs.Select(i => $"com0com pair {i}"));
-        var summary = $"Virtual port changes (create: {string.Join(", ", created)}; remove: {string.Join(", ", removed)}): "
-            + $"{(result.Declined ? "declined" : result.Succeeded ? "succeeded" : "failed")}.{Environment.NewLine}{result.Log.Trim()}";
+        var what = job.Server is not null ? "Server settings" : $"Virtual port changes (create: {string.Join(", ", created)}; remove: {string.Join(", ", removed)})";
+        var summary = $"{what}: {(result.Declined ? "declined" : result.Succeeded ? "succeeded" : "failed")}.{Environment.NewLine}{result.Log.Trim()}";
         if (result.Succeeded)
             Log.Info(summary);
         else
@@ -574,11 +630,16 @@ internal sealed class SettingsForm : Form
 
         await RefreshInventoryAsync();
         if (result.Declined)
-            return;
+            return result;
         var notRunning = created.Where(p => _inventory is not null && _inventory.IsVirtual(p) && !_inventory.IsRunning(p)).ToList();
         if (!result.Succeeded)
         {
-            Dialogs.Error("Some virtual port changes failed", "The details below are also in the log.", result.Log.Trim(), this);
+            Dialogs.Error(job.Server is not null ? "The server settings weren't applied" : "Some virtual port changes failed",
+                "The details below are also in the log.", result.Log.Trim(), this);
+        }
+        else if (job.Server is not null)
+        {
+            Dialogs.Info(job.Server.Enabled ? "Server settings applied" : "Server mode switched off", result.Log.Trim(), this);
         }
         else if (notRunning.Count > 0)
         {
@@ -591,6 +652,7 @@ internal sealed class SettingsForm : Form
         {
             Dialogs.Info("Virtual ports ready", $"{string.Join(", ", created)} can now be started from the tray menu.", this);
         }
+        return result;
     }
 
     private List<string> MissingPorts(IEnumerable<string> ports) =>
@@ -665,8 +727,11 @@ internal sealed class SettingsForm : Form
         UseWaitCursor = busy;
         _grid.Enabled = !busy;
         _closeButton.Enabled = !busy;
+        _serverPanel.SetBusy(busy);
         UpdateButtons();
     }
+
+    private bool IsDirty => _dirty || _serverDirty;
 
     private void MarkDirty()
     {
@@ -676,7 +741,15 @@ internal sealed class SettingsForm : Form
         UpdateTitle();
     }
 
-    private void UpdateTitle() => Text = _dirty ? BaseTitle + " (unsaved changes)" : BaseTitle;
+    private void MarkServerDirty()
+    {
+        if (_serverDirty)
+            return;
+        _serverDirty = true;
+        UpdateTitle();
+    }
+
+    private void UpdateTitle() => Text = IsDirty ? BaseTitle + " (unsaved changes)" : BaseTitle;
 
     private void ShowErrors(IReadOnlyCollection<string> errors) =>
         Dialogs.Error("Please fix these problems before saving", string.Join("\n", errors.Select(e => "• " + e)), owner: this);
@@ -691,7 +764,7 @@ internal sealed class SettingsForm : Form
             return;
         }
         _grid.EndEdit();
-        if (!_dirty)
+        if (!IsDirty)
             return;
 
         var choice = MessageBox.Show(this, "Save your changes before closing?", _edition.ProductName,

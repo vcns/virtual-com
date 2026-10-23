@@ -3,11 +3,12 @@ using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
 using Vcns.VirtualCom.Bridge.Configuration;
+using Vcns.VirtualCom.Bridge.Server;
 using Vcns.VirtualCom;
 
 namespace Vcns.VirtualCom.Bridge.VirtualPorts;
 
-/// <summary>Virtual port changes to make in one elevated run.</summary>
+/// <summary>Changes that need administrator rights, made in one elevated run: virtual ports and server mode.</summary>
 internal sealed class PortJob
 {
     public List<string> CreateVcns { get; set; } = [];
@@ -20,7 +21,10 @@ internal sealed class PortJob
 
     public string? SetupcPath { get; set; }
 
-    public bool IsEmpty => CreateVcns.Count + RemoveVcns.Count + CreateCom0com.Count + RemoveCom0comPairs.Count == 0;
+    /// <summary>A server configuration to save and apply (service, firewall), or null to leave server mode alone.</summary>
+    public ServerConfig? Server { get; set; }
+
+    public bool IsEmpty => CreateVcns.Count + RemoveVcns.Count + CreateCom0com.Count + RemoveCom0comPairs.Count == 0 && Server is null;
 }
 
 internal sealed class PortJobResult
@@ -78,7 +82,7 @@ internal static class VirtualPortSetup
     }
 
     /// <summary>Entry point of the elevated helper process.</summary>
-    public static int RunTask(string jobFile)
+    public static int RunTask(string jobFile, BridgeEdition edition)
     {
         var log = new StringBuilder();
         var ok = true;
@@ -111,6 +115,9 @@ internal static class VirtualPortSetup
                 foreach (var index in job.RemoveCom0comPairs)
                     ok &= Com0comSetup.RemovePair(setupc, index, log);
             }
+
+            if (job.Server is { } server)
+                ok &= ServerSetup.Apply(server, edition, log);
         }
         catch (Exception ex)
         {

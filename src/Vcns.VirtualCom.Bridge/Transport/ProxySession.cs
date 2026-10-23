@@ -52,7 +52,6 @@ internal sealed class ProxySession
 {
     private const int BufferSize = 16 * 1024;
     private static readonly TimeSpan PumpShutdownTimeout = TimeSpan.FromSeconds(5);
-    private static readonly TimeSpan DrainTimeout = TimeSpan.FromMilliseconds(500);
 
     private readonly PortTarget _target;
     private volatile IPortEndpoint? _endpoint;
@@ -238,7 +237,7 @@ internal sealed class ProxySession
         finally
         {
             if (socket is not null)
-                await CloseGracefullyAsync(socket);
+                await SocketTuning.CloseGracefullyAsync(socket);
             var endpoint = _endpoint;
             _endpoint = null;
             endpoint?.Dispose();
@@ -418,7 +417,7 @@ internal sealed class ProxySession
         try
         {
             await socket.ConnectAsync(addresses, Profile.TargetPort, timeout.Token);
-            ConfigureKeepAlive(socket);
+            SocketTuning.ApplyKeepAlive(socket, Port);
             return socket;
         }
         catch (OperationCanceledException) when (!ct.IsCancellationRequested)
@@ -448,26 +447,6 @@ internal sealed class ProxySession
         }
     }
 
-    /// <summary>
-    /// Detects a dead link within about 30 s even when no data is flowing, so the state shown is never stale for long.
-    /// </summary>
-    private void ConfigureKeepAlive(Socket socket)
-    {
-        try
-        {
-            socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.KeepAlive, true);
-            socket.SetSocketOption(SocketOptionLevel.Tcp, SocketOptionName.TcpKeepAliveTime, 10);
-            socket.SetSocketOption(SocketOptionLevel.Tcp, SocketOptionName.TcpKeepAliveInterval, 2);
-            socket.SetSocketOption(SocketOptionLevel.Tcp, SocketOptionName.TcpKeepAliveRetryCount, 5);
-            // TCP_MAXRT: give up on unacknowledged data after 30 s rather than Windows' default of a minute or more.
-            socket.SetSocketOption(SocketOptionLevel.Tcp, (SocketOptionName)5, 30);
-        }
-        catch (SocketException ex)
-        {
-            Log.Warn($"{Port}: could not configure TCP keep-alive ({ex.Message}).");
-        }
-    }
-
     /// <summary>True if the target closes or resets the connection within <paramref name="window"/>.</summary>
     private static bool ClosedByRemoteWithin(Socket socket, TimeSpan window, CancellationToken ct)
     {
@@ -488,28 +467,6 @@ internal sealed class ProxySession
             {
                 return true;
             }
-        }
-    }
-
-    private static async Task CloseGracefullyAsync(Socket socket)
-    {
-        try
-        {
-            // Send FIN and read whatever is still in flight, so Windows doesn't answer unread data with a reset and the
-            // target sees an orderly close it can release promptly.
-            socket.Shutdown(SocketShutdown.Send);
-            var scratch = new byte[4096];
-            using var drain = new CancellationTokenSource(DrainTimeout);
-            while (await socket.ReceiveAsync(scratch, SocketFlags.None, drain.Token) > 0)
-            {
-            }
-        }
-        catch (Exception ex) when (ex is SocketException or OperationCanceledException or ObjectDisposedException)
-        {
-        }
-        finally
-        {
-            socket.Dispose();
         }
     }
 
