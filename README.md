@@ -22,7 +22,7 @@ Bytes written to one end are read from the other, unchanged. The COM end behaves
 
 The driver is a UMDF DLL loaded by Windows' own driver host. It contains no kernel-mode code, so:
 - Windows' kernel driver-signing rules don't apply. Since Windows 10 1607 (and more strictly since the 2026 removal of cross-signed driver trust), those rules require Microsoft's signature. The driver package needs only a normal code-signing certificate.
-- A bug in the driver can't crash the machine.
+- A bug in the driver makes Windows restart its driver host process, rather than stopping the machine.
 
 ## How it works
 
