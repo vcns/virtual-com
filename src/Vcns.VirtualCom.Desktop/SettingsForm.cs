@@ -286,9 +286,8 @@ internal sealed class SettingsForm : Form
             SetComChoices(config.Profiles.Select(p => p.LocalComPort));
             foreach (var profile in config.Profiles)
             {
-                var index = _grid.Rows.Add(profile.Enabled, profile.TargetServer, profile.TargetPort.ToString(CultureInfo.InvariantCulture),
+                AddRow(profile.Id, profile.Enabled, profile.TargetServer, profile.TargetPort.ToString(CultureInfo.InvariantCulture),
                     NullIfEmpty(profile.LocalComPort)!, "", profile.BridgePort ?? "");
-                _grid.Rows[index].Tag = profile.Id;
             }
 
             var options = config.Options;
@@ -386,8 +385,7 @@ internal sealed class SettingsForm : Form
         _loading = true;
         try
         {
-            row = _grid.Rows[_grid.Rows.Add(true, "", _edition.DefaultTargetPort?.ToString(CultureInfo.InvariantCulture) ?? "", next, "", "")];
-            row.Tag = Guid.NewGuid();
+            row = AddRow(Guid.NewGuid(), true, "", _edition.DefaultTargetPort?.ToString(CultureInfo.InvariantCulture) ?? "", next, "", "");
         }
         finally
         {
@@ -404,7 +402,7 @@ internal sealed class SettingsForm : Form
     {
         if (_grid.CurrentRow is not { } row)
             return;
-        if (_sessions.Find((Guid)row.Tag!) is not null)
+        if (ActiveSession(row) is not null)
         {
             Dialogs.Info("Profile is active", $"Disconnect {CellText(row, _comColumn)} from the tray menu before removing its profile.", this);
             return;
@@ -506,7 +504,7 @@ internal sealed class SettingsForm : Form
                 errors.Add($"Row {row.Index + 1}: Target Port '{portText}' must be a whole number between 1 and 65535.");
             config.Profiles.Add(new ConnectionProfile
             {
-                Id = (Guid)row.Tag!,
+                Id = row.Tag is Guid id ? id : Guid.NewGuid(),
                 Enabled = row.Cells[_enabledColumn.Index].Value is true,
                 TargetServer = CellText(row, _serverColumn),
                 TargetPort = port,
@@ -686,7 +684,7 @@ internal sealed class SettingsForm : Form
     {
         foreach (DataGridViewRow row in _grid.Rows)
         {
-            var locked = _sessions.Find((Guid)row.Tag!) is not null;
+            var locked = ActiveSession(row) is not null;
             foreach (var column in new DataGridViewColumn[] { _serverColumn, _portColumn, _comColumn, _bridgeColumn })
             {
                 row.Cells[column.Index].ReadOnly = locked;
@@ -701,7 +699,7 @@ internal sealed class SettingsForm : Form
 
     private string DescribeRow(DataGridViewRow row)
     {
-        if (_sessions.Find((Guid)row.Tag!) is { } session)
+        if (ActiveSession(row) is { } session)
             return $"{(session.State == SessionState.Connected ? "Connected" : "Active")}: disconnect it to change this row";
         var com = CellText(row, _comColumn);
         var bridge = CellText(row, _bridgeColumn);
@@ -716,7 +714,7 @@ internal sealed class SettingsForm : Form
     {
         var current = _grid.CurrentRow;
         _addButton.Enabled = !_busy && _inventory is not null;
-        _removeButton.Enabled = !_busy && current is not null && _sessions.Find((Guid)current.Tag!) is null;
+        _removeButton.Enabled = !_busy && current is not null && ActiveSession(current) is null;
         _createPortsButton.Enabled = !_busy && _inventory is not null;
         _saveButton.Enabled = !_busy;
     }
@@ -792,6 +790,20 @@ internal sealed class SettingsForm : Form
 
     private IEnumerable<string> RowComPorts() =>
         _grid.Rows.Cast<DataGridViewRow>().Select(r => CellText(r, _comColumn)).Where(s => s.Length > 0);
+
+    /// <summary>
+    /// Adds a row that already carries its profile ID. Inserting the first row makes it the current cell, which runs
+    /// event handlers that read the ID before an Add-then-set-Tag sequence would have set it.
+    /// </summary>
+    private DataGridViewRow AddRow(Guid profileId, params object[] values)
+    {
+        var row = new DataGridViewRow { Tag = profileId };
+        row.CreateCells(_grid, values);
+        return _grid.Rows[_grid.Rows.Add(row)];
+    }
+
+    /// <summary>The running session for a row's profile; null for a row that isn't connected (or has no ID yet).</summary>
+    private ProxySession? ActiveSession(DataGridViewRow row) => row.Tag is Guid id ? _sessions.Find(id) : null;
 
     private static string CellText(DataGridViewRow row, DataGridViewColumn column) =>
         (row.Cells[column.Index].Value as string ?? row.Cells[column.Index].Value?.ToString() ?? "").Trim();

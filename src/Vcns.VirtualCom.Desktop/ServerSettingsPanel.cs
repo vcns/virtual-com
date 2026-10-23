@@ -212,10 +212,9 @@ internal sealed class ServerSettingsPanel : UserControl
             _logPayload.Checked = config.LogPayload;
             foreach (var port in config.Ports)
             {
-                var index = _grid.Rows.Add(port.Enabled, NullIfEmpty(port.ComPort)!, port.TcpPort.ToString(CultureInfo.InvariantCulture),
+                AddGridRow(port.Id, port.Enabled, NullIfEmpty(port.ComPort)!, port.TcpPort.ToString(CultureInfo.InvariantCulture),
                     port.ListenAddress, string.Join(", ", port.AllowedClients), port.Serial.BaudRate.ToString(CultureInfo.InvariantCulture),
                     port.Serial.Format, FlowText(port.Serial.FlowControl), "");
-                _grid.Rows[index].Tag = port.Id;
             }
         }
         finally
@@ -260,7 +259,7 @@ internal sealed class ServerSettingsPanel : UserControl
 
             config.Ports.Add(new ServerPort
             {
-                Id = (Guid)row.Tag!,
+                Id = row.Tag is Guid id ? id : Guid.NewGuid(),
                 Enabled = row.Cells[_onColumn.Index].Value is true,
                 ComPort = CellText(row, _comColumn),
                 TcpPort = tcp,
@@ -331,8 +330,7 @@ internal sealed class ServerSettingsPanel : UserControl
         _loading = true;
         try
         {
-            row = _grid.Rows[_grid.Rows.Add(true, NullIfEmpty(com)!, "", listen, DefaultClients(listen), "115200", "8N1", "None", "")];
-            row.Tag = Guid.NewGuid();
+            row = AddGridRow(Guid.NewGuid(), true, NullIfEmpty(com)!, "", listen, DefaultClients(listen), "115200", "8N1", "None", "");
             SuggestTcpPort(row);
         }
         finally
@@ -471,6 +469,14 @@ internal sealed class ServerSettingsPanel : UserControl
     {
         _addButton.Enabled = !_busy;
         _removeButton.Enabled = !_busy && _grid.CurrentRow is not null;
+    }
+
+    /// <summary>Adds a row that already carries its ID, so handlers run while it's inserted can rely on it.</summary>
+    private DataGridViewRow AddGridRow(Guid id, params object[] values)
+    {
+        var row = new DataGridViewRow { Tag = id };
+        row.CreateCells(_grid, values);
+        return _grid.Rows[_grid.Rows.Add(row)];
     }
 
     private IEnumerable<string> RowValues(DataGridViewColumn column) =>
