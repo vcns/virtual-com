@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang='en-GB'>
+<head>
+  <meta charset='UTF-8'>
+  <meta name='viewport' content='width=device-width, initial-scale=1.0'>
+  <title>User guide · virtual-com</title>
+  <meta name='description' content='Install the virtual-com driver, create and remove virtual COM ports with vcomctl, check them in Device Manager and uninstall cleanly.'>
+  <link rel='icon' href='favicon.ico'>
+  <link rel='stylesheet' href='styles.css'>
+</head>
+<body>
+  <a class='skip-link' href='#main'>Skip to content</a>
+  <div class='page-shell'>
+    <header class='hero'>
+      <div class='hero-copy'>
+        <p class='eyebrow'>virtual-com · User guide</p>
+        <h1>Install the driver and create ports.</h1>
+        <p class='lede'>This guide is for administrators setting up virtual COM ports on a PC. If you're writing the software that sits behind a port, read the <a href='developer-guide.html'>developer guide</a> as well.</p>
+      </div>
+      <aside class='hero-panel'>
+        <h2>You'll need</h2>
+        <ul>
+          <li>Windows 10 1809+ or Windows 11, 64-bit</li>
+          <li>An administrator account, to install the driver and create or remove ports</li>
+          <li>The driver package (<code>vcnsvcom.inf</code>, <code>.dll</code>, <code>.cat</code>) and <code>vcomctl.exe</code></li>
+          <li>About 5 minutes</li>
+        </ul>
+      </aside>
+    </header>
+
+    <div class='content-shell'>
+      <nav class='sidebar' aria-label='Documentation navigation'>
+        <div class='sidebar-group'>
+          <h3>Site</h3>
+          <ul>
+            <li><a href='index.html'>Home</a></li>
+            <li><a href='use-cases.html'>Use cases</a></li>
+            <li><a href='user-guide.html' aria-current='page'>User guide</a></li>
+            <li><a href='developer-guide.html'>Developer guide</a></li>
+            <li><a href='reference.html'>Serial reference</a></li>
+            <li><a href='building.html'>Build &amp; sign</a></li>
+            <li><a href='faq.html'>FAQ</a></li>
+            <li><a href='https://github.com/vcns/virtual-com'>Repository</a></li>
+          </ul>
+        </div>
+        <div class='sidebar-group'>
+          <h3>On this page</h3>
+          <ul>
+            <li><a href='#get'>1. Get the files</a></li>
+            <li><a href='#test-certificate'>2. Test certificate</a></li>
+            <li><a href='#install'>3. Install the driver</a></li>
+            <li><a href='#create'>4. Create a port</a></li>
+            <li><a href='#check'>5. Check it</a></li>
+            <li><a href='#use'>Using a port</a></li>
+            <li><a href='#remove'>Removing ports</a></li>
+            <li><a href='#uninstall'>Uninstalling</a></li>
+            <li><a href='#trouble'>Troubleshooting</a></li>
+          </ul>
+        </div>
+      </nav>
+
+      <main id='main'>
+        <section id='get' class='section'>
+          <p class='section-label'>Step 1</p>
+          <h2>Get the files.</h2>
+          <p>Signed releases will be published on the <a href='https://github.com/vcns/virtual-com/releases'>releases page</a>. Until the first one is out, build the package yourself (see <a href='building.html'>Build &amp; sign</a>), or use a test build supplied by VCNS.</p>
+          <p>Applications built on virtual-com usually carry the driver package and install it themselves. In that case, follow that application's guide instead of this one.</p>
+        </section>
+
+        <section id='test-certificate' class='section'>
+          <p class='section-label'>Step 2 · test builds only</p>
+          <h2>Trust the test certificate.</h2>
+          <div class='warning-callout'>
+            <h3>Only for test builds</h3>
+            <p>Production releases will be signed by VCNS Tech Ltd with a publicly trusted certificate, and this step won't be needed. Trusting a test certificate lets anything signed with it install on this PC, so do this only on machines you're evaluating on, and undo it afterwards.</p>
+          </div>
+          <p>Test builds come with <code>vcom-test-signing.cer</code>. In an <strong>administrator</strong> PowerShell window, run:</p>
+<pre><code>Import-Certificate -FilePath .\vcom-test-signing.cer -CertStoreLocation Cert:\LocalMachine\Root
+Import-Certificate -FilePath .\vcom-test-signing.cer -CertStoreLocation Cert:\LocalMachine\TrustedPublisher</code></pre>
+          <p>The first store makes Windows trust the certificate. The second stops Windows asking "Would you like to install this device software?" every time.</p>
+        </section>
+
+        <section id='install' class='section'>
+          <p class='section-label'>Step 3</p>
+          <h2>Install the driver package.</h2>
+          <p>In an administrator prompt, from the folder containing <code>vcomctl.exe</code>:</p>
+<pre><code>vcomctl install-driver C:\path\to\package\vcnsvcom.inf</code></pre>
+          <p>This adds the package to Windows' driver store. You only need to do it once per PC, and again when you upgrade the driver: existing ports switch to the newer version.</p>
+        </section>
+
+        <section id='create' class='section'>
+          <p class='section-label'>Step 4</p>
+          <h2>Create a port.</h2>
+          <p>Pick a COM number nothing else uses. A safe habit is to go <strong>above every number already in use or reserved</strong>, including ports of USB adapters that are currently unplugged. Then:</p>
+<pre><code>vcomctl create COM20</code></pre>
+          <p>Expected output:</p>
+<pre><code>Created COM20 (ROOT\VCNSVCOM\0000): running</code></pre>
+          <p>The number is written to the device before the driver installs, so Windows keeps it. It is also claimed in Windows' COM name database, so no other device is given it later. Create as many ports as you need, one command each.</p>
+        </section>
+
+        <section id='check' class='section'>
+          <p class='section-label'>Step 5</p>
+          <h2>Check it.</h2>
+          <ul class='bullets'>
+            <li><strong>Device Manager → Ports (COM &amp; LPT)</strong> lists <strong>VCNS Virtual COM Port (COM20)</strong>. Double-click it: <em>Device status</em> should say "This device is working properly".</li>
+            <li><code>vcomctl list</code> shows every virtual port and whether it's running:
+<pre><code>COM20    running                      ROOT\VCNSVCOM\0000</code></pre></li>
+            <li>The port also appears in <code>HKLM\HARDWARE\DEVICEMAP\SERIALCOMM</code>, which most applications use to list ports.</li>
+          </ul>
+        </section>
+
+        <section id='use' class='section'>
+          <p class='section-label'>Using a port</p>
+          <h2>What applications see.</h2>
+          <div class='definition-grid'>
+            <div>
+              <dt>Nothing on the host end</dt>
+              <dd>The application can open COM20. CTS, DSR and DCD are low, like a port with no cable plugged in. Anything it writes is discarded.</dd>
+            </div>
+            <div>
+              <dt>Host application attached</dt>
+              <dd>The lines rise (unless the host chooses otherwise), and bytes flow both ways unchanged.</dd>
+            </div>
+            <div>
+              <dt>Serial settings</dt>
+              <dd>Any baud rate, data bits, parity, stop bits or flow control the application sets is accepted, and reported to the host. None of it changes the data.</dd>
+            </div>
+            <div>
+              <dt>One at a time</dt>
+              <dd>Like a real port, COM20 can be open in only one application at a time; a second open gets "Access is denied". The host end is exclusive too.</dd>
+            </div>
+          </div>
+          <p>A port does nothing useful until a host application opens its host end. The <a href='developer-guide.html#echo'>developer guide</a> has a ten-line echo example to try.</p>
+        </section>
+
+        <section id='remove' class='section'>
+          <p class='section-label'>Removing</p>
+          <h2>Remove a port.</h2>
+          <p>Close any application using it, then in an administrator prompt run:</p>
+<pre><code>vcomctl remove COM20</code></pre>
+          <p>The device is removed and COM20 is released in the COM name database. You can also give the device instance ID shown by <code>vcomctl list</code>.</p>
+        </section>
+
+        <section id='uninstall' class='section'>
+          <p class='section-label'>Uninstalling</p>
+          <h2>Remove everything.</h2>
+          <ol class='steps'>
+            <li>Remove every port with <code>vcomctl remove</code>.</li>
+            <li>Find the driver package: <code>pnputil /enum-drivers</code>, and look for <em>Original Name: vcnsvcom.inf</em>.</li>
+            <li>Delete it, using its published name: <code>pnputil /delete-driver oem42.inf /uninstall</code>.</li>
+            <li>If you trusted a test certificate, remove it:
+<pre><code>Get-ChildItem Cert:\LocalMachine\Root, Cert:\LocalMachine\TrustedPublisher |
+    Where-Object Subject -like 'CN=VCNS Virtual COM*' | Remove-Item</code></pre></li>
+          </ol>
+          <p>Developers working from the repository can run <code>scripts\Uninstall-Test.ps1</code>, which does all of this.</p>
+        </section>
+
+        <section id='trouble' class='section'>
+          <p class='section-label'>Troubleshooting</p>
+          <h2>If something goes wrong.</h2>
+          <div class='faq-list'>
+            <article class='faq-item'>
+              <h3><code>vcomctl list</code> says "not running (problem 52)"</h3>
+              <p>Windows rejected the package's signature. With a test build, check the certificate was imported into <em>both</em> LocalMachine stores on this PC (step 2). With a release build, check the package files haven't been altered, because the catalog covers every file.</p>
+            </article>
+            <article class='faq-item'>
+              <h3>"Access is denied" from <code>install-driver</code>, <code>create</code> or <code>remove</code></h3>
+              <p>These commands change devices and need an elevated (Run as administrator) prompt. <code>list</code> works without it.</p>
+            </article>
+            <article class='faq-item'>
+              <h3>"COM20 already exists"</h3>
+              <p>A virtual port with that name is already present. Run <code>vcomctl list</code>. To reuse the number, remove the existing port first.</p>
+            </article>
+            <article class='faq-item'>
+              <h3>An application can't open the port</h3>
+              <p>Another application probably has it open, since each end allows one handle. Close it, or check with a tool such as Sysinternals Process Explorer (search for the port name). If the port isn't listed in Device Manager at all, it was removed or never created.</p>
+            </article>
+            <article class='faq-item'>
+              <h3>The application doesn't list the new port</h3>
+              <p>Some applications only scan for ports when they start. Restart the application. If it still doesn't appear, check the port is running and listed in <code>SERIALCOMM</code>.</p>
+            </article>
+            <article class='faq-item'>
+              <h3>Where are the installation logs?</h3>
+              <p>Windows records driver installation in <code>%windir%\INF\setupapi.dev.log</code>. Search it for <code>vcnsvcom</code> to see signature checks and any errors.</p>
+            </article>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <footer class='site-footer'>
+      <p>virtual-com · © 2026 VCNS Tech Ltd · <a href='https://github.com/vcns/virtual-com/blob/main/LICENSE'>MS-PL licence</a></p>
+      <p><a href='index.html'>Home</a> · <a href='faq.html'>FAQ</a> · <a href='https://github.com/vcns/virtual-com'>Repository</a></p>
+    </footer>
+  </div>
+</body>
+</html>

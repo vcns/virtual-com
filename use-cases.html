@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang='en-GB'>
+<head>
+  <meta charset='UTF-8'>
+  <meta name='viewport' content='width=device-width, initial-scale=1.0'>
+  <title>Use cases · virtual-com</title>
+  <meta name='description' content='What virtual-com is used for: bridging serial software to networks, simulating devices, testing serial applications, logging traffic and modernising legacy tools.'>
+  <link rel='icon' href='favicon.ico'>
+  <link rel='stylesheet' href='styles.css'>
+</head>
+<body>
+  <a class='skip-link' href='#main'>Skip to content</a>
+  <div class='page-shell'>
+    <header class='hero'>
+      <div class='hero-copy'>
+        <p class='eyebrow'>virtual-com · Use cases</p>
+        <h1>When software only speaks COM.</h1>
+        <p class='lede'>Plenty of Windows software can only reach its device through a serial port: vendor configuration tools, PLC and instrument software, older line-of-business applications. virtual-com lets your own code stand where the cable used to be, without changing that software.</p>
+      </div>
+      <aside class='hero-panel'>
+        <h2>Common patterns</h2>
+        <ul>
+          <li>Serial software to a networked device</li>
+          <li>Device simulators and emulators</li>
+          <li>Automated testing of serial applications</li>
+          <li>Traffic logging and protocol analysis</li>
+          <li>Protocol gateways and modernisation</li>
+        </ul>
+      </aside>
+    </header>
+
+    <div class='content-shell'>
+      <nav class='sidebar' aria-label='Documentation navigation'>
+        <div class='sidebar-group'>
+          <h3>Site</h3>
+          <ul>
+            <li><a href='index.html'>Home</a></li>
+            <li><a href='use-cases.html' aria-current='page'>Use cases</a></li>
+            <li><a href='user-guide.html'>User guide</a></li>
+            <li><a href='developer-guide.html'>Developer guide</a></li>
+            <li><a href='reference.html'>Serial reference</a></li>
+            <li><a href='building.html'>Build &amp; sign</a></li>
+            <li><a href='faq.html'>FAQ</a></li>
+            <li><a href='https://github.com/vcns/virtual-com'>Repository</a></li>
+          </ul>
+        </div>
+        <div class='sidebar-group'>
+          <h3>On this page</h3>
+          <ul>
+            <li><a href='#network-bridge'>Network bridges</a></li>
+            <li><a href='#simulators'>Device simulators</a></li>
+            <li><a href='#testing'>Automated testing</a></li>
+            <li><a href='#logging'>Logging and analysis</a></li>
+            <li><a href='#gateways'>Gateways and modernisation</a></li>
+            <li><a href='#not-for'>When not to use it</a></li>
+          </ul>
+        </div>
+      </nav>
+
+      <main id='main'>
+        <section id='network-bridge' class='section'>
+          <p class='section-label'>Pattern 1</p>
+          <h2>Bridge serial software to a networked device.</h2>
+          <p>Many devices now sit on a network but still speak their original serial protocol, sometimes over a raw TCP port. The configuration software, however, still expects a COM port. A small host application can open the port's host end and a TCP connection, then copy bytes between them. The vendor's software talks to <code>COM20</code> as if the device were plugged in locally.</p>
+          <div class='section-grid'>
+            <div>
+              <h3>Why virtual-com suits this</h3>
+              <ul class='bullets'>
+                <li>The host decides when the "cable" is connected. It can keep CTS, DSR and DCD low until the TCP session is established, so the application doesn't start talking too early.</li>
+                <li>The host can read the application's chosen baud rate and line settings, and log them or pass them on to a device that cares.</li>
+                <li>Only one application can open the COM end, which matches devices that accept a single session.</li>
+                <li>No kernel driver to get past IT security reviews or Secure Boot.</li>
+              </ul>
+            </div>
+            <div class='callout'>
+              <h3>Example</h3>
+              <p>VCNS uses virtual-com in a tray application that lets an LED display controller's configuration software manage controllers over the network. The controllers expose their serial protocol on a TCP port.</p>
+            </div>
+          </div>
+        </section>
+
+        <section id='simulators' class='section'>
+          <p class='section-label'>Pattern 2</p>
+          <h2>Simulate a device that isn't there.</h2>
+          <p>Write a host application that answers like the real instrument, modem, GPS receiver or controller would. Developers and support staff can then use the real client software against a simulated device: to reproduce a customer's problem, demonstrate features, or train staff without hardware.</p>
+          <ul class='bullets'>
+            <li>Play back captured responses, or generate them from a model of the device.</li>
+            <li>Simulate a cable being pulled, by dropping the modem lines or closing the host end.</li>
+            <li>Inject delays or partial responses to see how the client copes with a slow or faulty device.</li>
+          </ul>
+        </section>
+
+        <section id='testing' class='section'>
+          <p class='section-label'>Pattern 3</p>
+          <h2>Test serial applications automatically.</h2>
+          <p>Because the host end is just another handle, a test framework can drive it. Test your application's real serial code against scripted exchanges, including time-outs, event waits, purges and line changes, without serial hardware or loopback cables.</p>
+          <ul class='bullets'>
+            <li>Runs on ordinary Windows build agents. virtual-com's own CI installs the driver on GitHub's hosted Windows runners and runs its test suite against a real port.</li>
+            <li>Deterministic: the test controls exactly what the application receives and when.</li>
+            <li>Inspect what the application configured (baud rate, DTR, RTS, break) through the host's state query.</li>
+          </ul>
+        </section>
+
+        <section id='logging' class='section'>
+          <p class='section-label'>Pattern 4</p>
+          <h2>Log and analyse serial traffic.</h2>
+          <p>Put a host application in the middle: it relays to the real device, through a physical port or the network, and records every byte in both directions with timestamps. This helps when reverse-engineering an undocumented protocol, auditing what a vendor tool sends to production equipment, or tracking down an intermittent fault.</p>
+        </section>
+
+        <section id='gateways' class='section'>
+          <p class='section-label'>Pattern 5</p>
+          <h2>Gateways and gradual modernisation.</h2>
+          <p>Keep a legacy application unchanged while its backend moves on. The host end can translate between the application's serial dialogue and a modern service: an HTTP API, MQTT, WebSocket or a database. The old software keeps working while the infrastructure behind it is replaced.</p>
+        </section>
+
+        <section id='not-for' class='section'>
+          <p class='section-label'>Limits</p>
+          <h2>When not to use it.</h2>
+          <div class='card-grid'>
+            <article class='card'>
+              <h3>Two existing applications</h3>
+              <p>To connect two off-the-shelf serial applications directly to each other, you need two COM ports wired back to back. virtual-com gives you one COM port and a programmable host end, so you would write a small relay between two ports.</p>
+            </article>
+            <article class='card'>
+              <h3>Physical timing</h3>
+              <p>There is no physical line. Data moves as fast as both ends read and write, not at the configured baud rate, and break or parity errors are not simulated on the data path.</p>
+            </article>
+            <article class='card'>
+              <h3>ARM64 or S mode</h3>
+              <p>Those editions of Windows require Microsoft-signed (WHQL) driver packages. virtual-com currently targets x64.</p>
+            </article>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <footer class='site-footer'>
+      <p>virtual-com · © 2026 VCNS Tech Ltd · <a href='https://github.com/vcns/virtual-com/blob/main/LICENSE'>MS-PL licence</a></p>
+      <p><a href='index.html'>Home</a> · <a href='user-guide.html'>User guide</a> · <a href='https://github.com/vcns/virtual-com'>Repository</a></p>
+    </footer>
+  </div>
+</body>
+</html>

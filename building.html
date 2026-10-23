@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang='en-GB'>
+<head>
+  <meta charset='UTF-8'>
+  <meta name='viewport' content='width=device-width, initial-scale=1.0'>
+  <title>Build &amp; sign · virtual-com</title>
+  <meta name='description' content='Build the virtual-com driver from source with Visual Studio Build Tools and the NuGet WDK, sign the driver package, run the tests and use the CI workflow.'>
+  <link rel='icon' href='favicon.ico'>
+  <link rel='stylesheet' href='styles.css'>
+</head>
+<body>
+  <a class='skip-link' href='#main'>Skip to content</a>
+  <div class='page-shell'>
+    <header class='hero'>
+      <div class='hero-copy'>
+        <p class='eyebrow'>virtual-com · Build &amp; sign</p>
+        <h1>Build it, sign it, ship it.</h1>
+        <p class='lede'>The driver builds with the standard C++ toolset and a Windows Driver Kit fetched from NuGet. There's no WDK installer and no Visual Studio WDK extension, so the same build runs on a laptop and on GitHub's hosted runners.</p>
+      </div>
+      <aside class='hero-panel'>
+        <h2>Toolchain</h2>
+        <ul>
+          <li>Visual Studio 2022 Build Tools, C++ workload</li>
+          <li>MSVC v143 Spectre-mitigated libraries</li>
+          <li>Windows SDK and WDK 10.0.28000 from NuGet</li>
+          <li>.NET 10 SDK, for the library, tool and tests</li>
+          <li><code>nuget.exe</code></li>
+        </ul>
+      </aside>
+    </header>
+
+    <div class='content-shell'>
+      <nav class='sidebar' aria-label='Documentation navigation'>
+        <div class='sidebar-group'>
+          <h3>Site</h3>
+          <ul>
+            <li><a href='index.html'>Home</a></li>
+            <li><a href='use-cases.html'>Use cases</a></li>
+            <li><a href='user-guide.html'>User guide</a></li>
+            <li><a href='developer-guide.html'>Developer guide</a></li>
+            <li><a href='reference.html'>Serial reference</a></li>
+            <li><a href='building.html' aria-current='page'>Build &amp; sign</a></li>
+            <li><a href='faq.html'>FAQ</a></li>
+            <li><a href='https://github.com/vcns/virtual-com'>Repository</a></li>
+          </ul>
+        </div>
+        <div class='sidebar-group'>
+          <h3>On this page</h3>
+          <ul>
+            <li><a href='#prerequisites'>Prerequisites</a></li>
+            <li><a href='#build'>Build</a></li>
+            <li><a href='#layout'>Repository layout</a></li>
+            <li><a href='#signing'>Signing</a></li>
+            <li><a href='#testing'>Testing</a></li>
+            <li><a href='#ci'>Continuous integration</a></li>
+            <li><a href='#contributing'>Contributing</a></li>
+          </ul>
+        </div>
+      </nav>
+
+      <main id='main'>
+        <section id='prerequisites' class='section'>
+          <p class='section-label'>Prerequisites</p>
+          <h2>Install the tools once.</h2>
+<pre><code>winget install --id Microsoft.VisualStudio.2022.BuildTools --override "--passive --wait --norestart --add Microsoft.VisualStudio.Workload.VCTools --includeRecommended --add Microsoft.VisualStudio.Component.VC.Runtimes.x86.x64.Spectre"
+winget install --id Microsoft.DotNet.SDK.10
+winget install --id Microsoft.NuGet</code></pre>
+          <p>The Spectre-mitigated libraries are the easily missed part: the driver is built with Spectre mitigation on.</p>
+        </section>
+
+        <section id='build' class='section'>
+          <p class='section-label'>Build</p>
+          <h2>Build the driver, library and tools.</h2>
+<pre><code>git clone https://github.com/vcns/virtual-com.git
+cd virtual-com
+nuget restore packages.config -PackagesDirectory packages
+msbuild driver\vcnsvcom.vcxproj -p:Configuration=Release -p:Platform=x64
+dotnet build VirtualCom.slnx -c Release</code></pre>
+          <p>The driver build compiles <code>vcnsvcom.dll</code> at warning level 4 with warnings as errors, Control Flow Guard, CET compatibility and the static C runtime, so there's no Visual C++ redistributable to install. It then assembles the package in <code>out\Release\package</code>:</p>
+          <ul class='bullets'>
+            <li><code>vcnsvcom.dll</code>, the driver;</li>
+            <li><code>vcnsvcom.inf</code>, stamped with date, version and UMDF version;</li>
+            <li><code>vcnsvcom.cat</code>, the catalog, still unsigned at this point.</li>
+          </ul>
+          <p>Set the package version with <code>-p:DriverVersion=1.2.3.4</code>.</p>
+          <div class='callout'>
+            <h3>Why not the WDK's own project type?</h3>
+            <p>Microsoft's driver project templates need full Visual Studio with the WDK extension. A user-mode driver is an ordinary DLL linked against the WDF stub library, so <code>build/Umdf.props</code> builds it with the standard v143 toolset and the defines the WDK applies. The only dependencies are Build Tools and the NuGet kits.</p>
+          </div>
+        </section>
+
+        <section id='layout' class='section'>
+          <p class='section-label'>Layout</p>
+          <h2>Repository layout.</h2>
+          <div class='table-wrap'>
+            <table>
+              <thead><tr><th scope='col'>Path</th><th scope='col'>Contents</th></tr></thead>
+              <tbody>
+                <tr><td><code>driver/</code></td><td>The UMDF 2 driver: device setup and COM registration (<code>device.c</code>), the data pump (<code>io.c</code>), serial control codes (<code>comport.c</code>), host control codes (<code>host.c</code>), and the INF template (<code>vcom.inx</code>).</td></tr>
+                <tr><td><code>include/vcom.h</code></td><td>Public interface shared with applications.</td></tr>
+                <tr><td><code>build/</code></td><td><code>Umdf.props</code> (toolchain) and <code>Sign-Package.ps1</code>.</td></tr>
+                <tr><td><code>src/Vcns.VirtualCom/</code></td><td>.NET library.</td></tr>
+                <tr><td><code>src/vcomctl/</code></td><td>Command-line tool.</td></tr>
+                <tr><td><code>tests/</code></td><td>Behaviour tests against an installed port.</td></tr>
+                <tr><td><code>scripts/</code></td><td>Development install and uninstall with a test certificate.</td></tr>
+                <tr><td><code>gh-pages/</code></td><td>This website.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section id='signing' class='section'>
+          <p class='section-label'>Signing</p>
+          <h2>Sign the package.</h2>
+          <p>Windows installs a driver package only if its catalog is signed by a certificate it trusts. A user-mode driver doesn't need Microsoft's signature: any code-signing certificate that chains to a trusted root will do, with an optional time stamp so the signature outlives the certificate.</p>
+<pre><code>build\Sign-Package.ps1 -Thumbprint &lt;certificate thumbprint&gt;</code></pre>
+          <p>The script signs the DLL, regenerates the catalog so it covers the signed DLL, and signs the catalog. All signatures use SHA-256 and an RFC 3161 time stamp; pass <code>-TimestampUrl ''</code> to skip the time stamp.</p>
+          <div class='card-grid'>
+            <article class='card'>
+              <h3>Development</h3>
+              <p>A self-signed certificate:</p>
+<pre><code>New-SelfSignedCertificate -Type CodeSigningCert `
+  -Subject 'CN=VCNS Virtual COM (test signing)' `
+  -CertStoreLocation Cert:\CurrentUser\My</code></pre>
+              <p>Trust it only on test machines, as described in the <a href='user-guide.html#test-certificate'>user guide</a>.</p>
+            </article>
+            <article class='card'>
+              <h3>Releases</h3>
+              <p>Official releases will be signed by VCNS Tech Ltd with a publicly trusted certificate, so that Windows shows a verified publisher and no certificate step is needed.</p>
+            </article>
+            <article class='card'>
+              <h3>Your own builds</h3>
+              <p>MS-PL lets you ship your own builds. Sign them with your organisation's certificate, such as Azure Artifact Signing or an OV code-signing certificate, and they'll show your name as publisher.</p>
+            </article>
+          </div>
+        </section>
+
+        <section id='testing' class='section'>
+          <p class='section-label'>Testing</p>
+          <h2>Run the tests.</h2>
+          <p>The tests exercise a real installed port through <code>System.IO.Ports</code>. First sign the package with your test certificate and export the certificate for the install script:</p>
+<pre><code>$cert = Get-ChildItem Cert:\CurrentUser\My | Where-Object Subject -eq 'CN=VCNS Virtual COM (test signing)'
+build\Sign-Package.ps1 -Thumbprint $cert.Thumbprint
+New-Item -ItemType Directory out\test-signing -Force | Out-Null
+Export-Certificate -Cert $cert -FilePath out\test-signing\vcom-test-signing.cer</code></pre>
+          <p>Then install and test:</p>
+<pre><code># administrator PowerShell: trust the test certificate, install, create COM20
+scripts\Install-TestPort.ps1 -Port COM20
+
+# any prompt
+$env:VCOM_TEST_PORT = 'COM20'
+dotnet test tests\Vcns.VirtualCom.Tests</code></pre>
+          <p>Without <code>VCOM_TEST_PORT</code>, the port tests are skipped. <code>scripts\Uninstall-Test.ps1</code> removes the ports, the package and the certificate again.</p>
+        </section>
+
+        <section id='ci' class='section'>
+          <p class='section-label'>CI</p>
+          <h2>Continuous integration.</h2>
+          <p>The GitHub Actions workflow runs on a hosted Windows Server 2025 runner. On every push it:</p>
+          <ol class='steps'>
+            <li>restores the NuGet kits;</li>
+            <li>builds the driver, library, tool and tests;</li>
+            <li>test-signs the package with a throwaway certificate;</li>
+            <li>trusts that certificate on the runner;</li>
+            <li>installs the driver, creates COM20 and runs the full test suite;</li>
+            <li>uploads the test-signed package as a build artefact.</li>
+          </ol>
+          <p>Because the runner is a throwaway virtual machine, trusting the test certificate there carries no risk.</p>
+        </section>
+
+        <section id='contributing' class='section'>
+          <p class='section-label'>Contributing</p>
+          <h2>Issues and pull requests.</h2>
+          <p>Bug reports, compatibility reports ("application X does Y on a virtual-com port") and pull requests are welcome on <a href='https://github.com/vcns/virtual-com'>GitHub</a>. For a compatibility problem, please include the application and version, what it does on a hardware port, and what it does on the virtual one. Contributions are accepted under the project's MS-PL licence.</p>
+          <p>Please don't report security problems in a public issue. Contact VCNS Tech Ltd privately through the <a href='https://github.com/vcns'>organisation's GitHub profile</a>.</p>
+        </section>
+      </main>
+    </div>
+
+    <footer class='site-footer'>
+      <p>virtual-com · © 2026 VCNS Tech Ltd · <a href='https://github.com/vcns/virtual-com/blob/main/LICENSE'>MS-PL licence</a></p>
+      <p><a href='index.html'>Home</a> · <a href='faq.html'>FAQ</a> · <a href='https://github.com/vcns/virtual-com'>Repository</a></p>
+    </footer>
+  </div>
+</body>
+</html>

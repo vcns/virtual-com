@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang='en-GB'>
+<head>
+  <meta charset='UTF-8'>
+  <meta name='viewport' content='width=device-width, initial-scale=1.0'>
+  <title>Serial reference · virtual-com</title>
+  <meta name='description' content='How the virtual-com COM end handles each Win32 serial call: time-out modes, wait events, modem lines, purge, status, properties and limits.'>
+  <link rel='icon' href='favicon.ico'>
+  <link rel='stylesheet' href='styles.css'>
+</head>
+<body>
+  <a class='skip-link' href='#main'>Skip to content</a>
+  <div class='page-shell'>
+    <header class='hero'>
+      <div class='hero-copy'>
+        <p class='eyebrow'>virtual-com · Serial reference</p>
+        <h1>What the COM end supports.</h1>
+        <p class='lede'>How the driver handles each serial request an application can make, for developers who need to know whether their serial software will behave the same as on a hardware port.</p>
+      </div>
+      <aside class='hero-panel'>
+        <h2>Rule of thumb</h2>
+        <ul>
+          <li>Settings: accepted, stored and reported, but they don't change the data</li>
+          <li>Time-outs, events, status and purge: implemented as Windows' serial driver behaves</li>
+          <li>Line errors and baud-rate timing: not simulated</li>
+        </ul>
+      </aside>
+    </header>
+
+    <div class='content-shell'>
+      <nav class='sidebar' aria-label='Documentation navigation'>
+        <div class='sidebar-group'>
+          <h3>Site</h3>
+          <ul>
+            <li><a href='index.html'>Home</a></li>
+            <li><a href='use-cases.html'>Use cases</a></li>
+            <li><a href='user-guide.html'>User guide</a></li>
+            <li><a href='developer-guide.html'>Developer guide</a></li>
+            <li><a href='reference.html' aria-current='page'>Serial reference</a></li>
+            <li><a href='building.html'>Build &amp; sign</a></li>
+            <li><a href='faq.html'>FAQ</a></li>
+            <li><a href='https://github.com/vcns/virtual-com'>Repository</a></li>
+          </ul>
+        </div>
+        <div class='sidebar-group'>
+          <h3>On this page</h3>
+          <ul>
+            <li><a href='#api'>Win32 calls</a></li>
+            <li><a href='#timeouts'>Time-outs</a></li>
+            <li><a href='#events'>Wait events</a></li>
+            <li><a href='#lines'>Modem lines</a></li>
+            <li><a href='#properties'>Reported properties</a></li>
+            <li><a href='#tested'>Tested clients</a></li>
+            <li><a href='#limits'>Limits</a></li>
+          </ul>
+        </div>
+      </nav>
+
+      <main id='main'>
+        <section id='api' class='section'>
+          <p class='section-label'>Compatibility</p>
+          <h2>Win32 calls and how they're handled.</h2>
+          <div class='table-wrap'>
+            <table>
+              <thead><tr><th scope='col'>Win32 / .NET</th><th scope='col'>Driver request</th><th scope='col'>Behaviour</th></tr></thead>
+              <tbody>
+                <tr><td><code>ReadFile</code></td><td>Read</td><td>Delivers bytes the host wrote, following the <a href='#timeouts'>time-out rules</a>.</td></tr>
+                <tr><td><code>WriteFile</code></td><td>Write</td><td>Passes bytes to the host. Waits if the 64 KB buffer is full; honours write time-outs. Discarded if no host is attached.</td></tr>
+                <tr><td><code>GetCommState</code> / <code>SetCommState</code></td><td><code>GET/SET_BAUD_RATE</code>, <code>_LINE_CONTROL</code>, <code>_CHARS</code>, <code>_HANDFLOW</code></td><td>Stored and returned. Baud rate must be non-zero; data bits 5–8, valid parity and stop bits.</td></tr>
+                <tr><td><code>GetCommTimeouts</code> / <code>SetCommTimeouts</code></td><td><code>GET/SET_TIMEOUTS</code></td><td>Stored and applied. All three read values set to <code>MAXDWORD</code> is rejected, as by Windows' own driver.</td></tr>
+                <tr><td><code>EscapeCommFunction</code> (SETDTR, CLRDTR, SETRTS, CLRRTS)</td><td><code>SET/CLR_DTR</code>, <code>SET/CLR_RTS</code></td><td>Stored; visible to the host through its state query.</td></tr>
+                <tr><td><code>SetCommBreak</code> / <code>ClearCommBreak</code></td><td><code>SET_BREAK_ON/OFF</code></td><td>Stored; visible to the host.</td></tr>
+                <tr><td><code>GetCommModemStatus</code></td><td><code>GET_MODEMSTATUS</code></td><td>The lines the host has set (see <a href='#lines'>modem lines</a>).</td></tr>
+                <tr><td><code>ClearCommError</code>, .NET <code>BytesToRead</code> / <code>BytesToWrite</code></td><td><code>GET_COMMSTATUS</code></td><td>Bytes waiting in each direction; no errors are ever reported.</td></tr>
+                <tr><td><code>GetCommProperties</code></td><td><code>GET_PROPERTIES</code></td><td>See <a href='#properties'>reported properties</a>.</td></tr>
+                <tr><td><code>SetCommMask</code> / <code>GetCommMask</code> / <code>WaitCommEvent</code></td><td><code>SET/GET_WAIT_MASK</code>, <code>WAIT_ON_MASK</code></td><td>See <a href='#events'>wait events</a>. One wait at a time; changing the mask completes a pending wait with no events.</td></tr>
+                <tr><td><code>PurgeComm</code>, .NET <code>DiscardInBuffer</code> / <code>DiscardOutBuffer</code></td><td><code>PURGE</code></td><td><code>RXABORT</code> and <code>TXABORT</code> cancel pending reads or writes; <code>RXCLEAR</code> and <code>TXCLEAR</code> empty the buffers.</td></tr>
+                <tr><td><code>TransmitCommChar</code></td><td><code>IMMEDIATE_CHAR</code></td><td>Sends one byte to the host ahead of queued writes.</td></tr>
+                <tr><td><code>SetupComm</code></td><td><code>SET_QUEUE_SIZE</code></td><td>Accepted; buffers are a fixed 64 KB.</td></tr>
+                <tr><td>Statistics</td><td><code>GET_STATS</code>, <code>CLEAR_STATS</code></td><td>Bytes received and transmitted; error counts are always zero.</td></tr>
+                <tr><td>Other</td><td><code>SET_XON</code>, <code>SET_XOFF</code>, <code>XOFF_COUNTER</code>, <code>RESET_DEVICE</code>, <code>LSRMST_INSERT</code>, <code>SET_FIFO_CONTROL</code>, <code>GET/SET_MODEM_CONTROL</code>, <code>CONFIG_SIZE</code>, <code>APPLY_DEFAULT_CONFIGURATION</code>, <code>GET_DTRRTS</code></td><td>Accepted (and stored where there is a value), so applications that issue them don't fail.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section id='timeouts' class='section'>
+          <p class='section-label'>Time-outs</p>
+          <h2>Read and write time-outs.</h2>
+          <p>Reads follow the <code>COMMTIMEOUTS</code> rules Windows documents for serial ports. A read that times out still returns any bytes it collected; <code>ReadFile</code> succeeds with fewer bytes than requested.</p>
+          <div class='table-wrap'>
+            <table>
+              <thead><tr><th scope='col'>Interval</th><th scope='col'>Total multiplier</th><th scope='col'>Total constant</th><th scope='col'>Behaviour</th></tr></thead>
+              <tbody>
+                <tr><td><code>MAXDWORD</code></td><td>0</td><td>0</td><td>Return immediately with whatever is buffered, even nothing.</td></tr>
+                <tr><td><code>MAXDWORD</code></td><td><code>MAXDWORD</code></td><td>1 … <code>MAXDWORD</code>−1</td><td>Return as soon as at least one byte is available; give up after the constant with nothing. .NET <code>SerialPort</code> uses this for its <code>ReadTimeout</code>.</td></tr>
+                <tr><td>0</td><td>0</td><td>0</td><td>No time-outs: wait until the whole buffer is filled.</td></tr>
+                <tr><td><em>n</em></td><td><em>m</em></td><td><em>c</em></td><td>Complete when the buffer is full, when <em>m</em> × length + <em>c</em> ms have passed (if either is non-zero), or when <em>n</em> ms pass between bytes (once at least one byte has arrived).</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p>Writes complete when every byte has been passed to the host's buffer. If the buffer stays full, the write total time-out (<code>WriteTotalTimeoutMultiplier</code> × length + <code>WriteTotalTimeoutConstant</code>) applies. Time-outs are checked against the system tick count, so expect up to about 16 ms of extra delay.</p>
+        </section>
+
+        <section id='events' class='section'>
+          <p class='section-label'>Events</p>
+          <h2>Wait events.</h2>
+          <div class='table-wrap'>
+            <table>
+              <thead><tr><th scope='col'>Event</th><th scope='col'>Raised when</th></tr></thead>
+              <tbody>
+                <tr><td><code>EV_RXCHAR</code></td><td>The host writes data to the application.</td></tr>
+                <tr><td><code>EV_RXFLAG</code></td><td>That data contains the event character set with <code>SetCommState</code>.</td></tr>
+                <tr><td><code>EV_RX80FULL</code></td><td>The buffer to the application is at least 80% full.</td></tr>
+                <tr><td><code>EV_TXEMPTY</code></td><td>Everything the application wrote has been read by the host (or discarded).</td></tr>
+                <tr><td><code>EV_CTS</code>, <code>EV_DSR</code>, <code>EV_RLSD</code>, <code>EV_RING</code></td><td>The corresponding line changes: the host end opens or closes, or the host sets the lines.</td></tr>
+                <tr><td><code>EV_BREAK</code>, <code>EV_ERR</code></td><td>Never: there are no line errors or incoming breaks.</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p>Events that happen while no wait is pending are remembered and returned by the next <code>WaitCommEvent</code>, as Windows' serial driver does.</p>
+        </section>
+
+        <section id='lines' class='section'>
+          <p class='section-label'>Lines</p>
+          <h2>Modem lines.</h2>
+          <div class='definition-grid'>
+            <div><dt>CTS, DSR, DCD (RLSD)</dt><dd>Raised when the host end opens and dropped when it closes. The host can set them at any time.</dd></div>
+            <div><dt>RI (ring)</dt><dd>Low unless the host raises it.</dd></div>
+            <div><dt>DTR, RTS</dt><dd>Set by the application and reported to the host. They don't affect CTS or DSR, and there is no hardware flow control loop.</dd></div>
+            <div><dt>Flow control settings</dt><dd>RTS/CTS, DTR/DSR and XON/XOFF settings are accepted and stored but not enforced. Instead, full buffers make the writer wait.</dd></div>
+          </div>
+        </section>
+
+        <section id='properties' class='section'>
+          <p class='section-label'>Properties</p>
+          <h2>Reported properties.</h2>
+          <p><code>GetCommProperties</code> reports an RS-232 port with:</p>
+          <ul class='bullets'>
+            <li>maximum baud rate "user-defined", so any value is accepted;</li>
+            <li>all standard baud rates;</li>
+            <li>5–8 data bits; 1, 1.5 and 2 stop bits; all parity modes;</li>
+            <li>DTR/DSR, RTS/CTS and XON/XOFF capabilities;</li>
+            <li>total and interval time-outs;</li>
+            <li>current queue sizes of 65,536 bytes each way.</li>
+          </ul>
+        </section>
+
+        <section id='tested' class='section'>
+          <p class='section-label'>Testing</p>
+          <h2>Tested clients.</h2>
+          <p>The test suite drives the COM end with .NET's <code>System.IO.Ports.SerialPort</code>, which uses the Win32 calls above. It covers:</p>
+          <ul class='bullets'>
+            <li>enumeration;</li>
+            <li>typical 115200 8N1 settings with DTR and RTS;</li>
+            <li>exclusive open;</li>
+            <li>simultaneous transfers of 256 KB each way, and 600 KB bursts larger than the buffer;</li>
+            <li>read time-outs and first-byte returns;</li>
+            <li>modem lines with <code>PinChanged</code>, <code>BytesToRead</code>, <code>DiscardInBuffer</code> and <code>DataReceived</code>;</li>
+            <li>discard with no host attached;</li>
+            <li>cancelling a pending read on close.</li>
+          </ul>
+          <p>Other clients that use the standard Win32 serial API, such as terminal programs or pySerial, should behave the same but haven't been systematically tested yet. Please <a href='https://github.com/vcns/virtual-com/issues'>report</a> any differences.</p>
+        </section>
+
+        <section id='limits' class='section'>
+          <p class='section-label'>Limits</p>
+          <h2>Limits.</h2>
+          <ul class='bullets'>
+            <li>x64 only; Windows 10 1809 (UMDF 2.25) or later.</li>
+            <li>64 KB buffer in each direction, per port.</li>
+            <li>Data is never masked to the configured data bits; all 8 bits pass through.</li>
+            <li>No parity, framing or overrun errors; no simulated baud-rate timing.</li>
+            <li>Each end accepts one open handle at a time.</li>
+          </ul>
+        </section>
+      </main>
+    </div>
+
+    <footer class='site-footer'>
+      <p>virtual-com · © 2026 VCNS Tech Ltd · <a href='https://github.com/vcns/virtual-com/blob/main/LICENSE'>MS-PL licence</a></p>
+      <p><a href='index.html'>Home</a> · <a href='developer-guide.html'>Developer guide</a> · <a href='https://github.com/vcns/virtual-com'>Repository</a></p>
+    </footer>
+  </div>
+</body>
+</html>
