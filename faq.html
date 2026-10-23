@@ -149,7 +149,19 @@
             </article>
             <article class='faq-item'>
               <h3>Can it expose a real COM port on the network instead?</h3>
-              <p>Not yet. That's <a href='bridge.html#server-mode'>server mode</a>, which is planned: real COM ports, such as USB-attached devices, each listening on their own TCP port.</p>
+              <p>Yes: that's <a href='bridge.html#server-mode'>server mode</a>. A real COM port, such as a USB-attached device's, listens on its own TCP port, one client at a time, from a Windows service that runs with nobody logged in.</p>
+            </article>
+            <article class='faq-item'>
+              <h3>Which TCP port does a shared COM port get?</h3>
+              <p>The edition's base plus the COM number: 4000 in the generic edition, so COM3 is on 4003, and 5200 in NovaStar Proxy, so COM3 is on 5203. Ports already in use or reserved on the PC are skipped, and you can type any other number.</p>
+            </article>
+            <article class='faq-item'>
+              <h3>Is server mode safe to switch on?</h3>
+              <p>It's designed to be locked down: each port listens on one address, serves only listed clients, and gets a firewall rule limited to them. The service runs as LocalService, and only administrators can change its settings. The device's own protocol is still unencrypted, though, so keep the allowed clients tight and use a management network or VPN. See <a href='bridge.html#server-changes'>what it changes on the PC</a>.</p>
+            </article>
+            <article class='faq-item'>
+              <h3>Can a monitoring system poll a shared port?</h3>
+              <p>Yes. A shared port behaves like a device with its own single-session TCP port, so existing TCP-based checks work by pointing them at the host and port. While monitoring is connected, other clients are told the port is in use. See <a href='bridge.html#monitoring'>monitoring shared ports</a>.</p>
             </article>
             <article class='faq-item'>
               <h3>Can I make an edition for my own product?</h3>
