@@ -144,8 +144,12 @@ internal sealed class SettingsForm : Form
         };
         bottom.Controls.AddRange([_closeButton, _saveButton]);
 
-        var client = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 6, Padding = new Padding(6) };
+        var diagram = Flows.Client(_edition);
+        diagram.Dock = DockStyle.Fill;
+
+        var client = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 7, Padding = new Padding(6) };
         client.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        client.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         client.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         client.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         client.RowStyles.Add(new RowStyle(SizeType.AutoSize));
@@ -153,15 +157,17 @@ internal sealed class SettingsForm : Form
         client.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         client.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         client.Controls.Add(intro, 0, 0);
-        client.Controls.Add(driverRow, 0, 1);
-        client.Controls.Add(filterRow, 0, 2);
-        client.Controls.Add(_grid, 0, 3);
-        client.Controls.Add(gridButtons, 0, 4);
-        client.Controls.Add(options, 0, 5);
+        client.Controls.Add(diagram, 0, 1);
+        client.Controls.Add(driverRow, 0, 2);
+        client.Controls.Add(filterRow, 0, 3);
+        client.Controls.Add(_grid, 0, 4);
+        client.Controls.Add(gridButtons, 0, 5);
+        client.Controls.Add(options, 0, 6);
 
         _tabs.Dock = DockStyle.Fill;
         _tabs.TabPages.Add(new TabPage("Client profiles") { Controls = { client } });
         _tabs.TabPages.Add(new TabPage("Server ports") { Controls = { _serverPanel } });
+        _tabs.TabPages.Add(new TabPage("About") { Controls = { new AboutPanel(_edition) } });
 
         var root = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 2 };
         root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));

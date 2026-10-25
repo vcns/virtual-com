@@ -68,6 +68,8 @@
             <li><a href='#server-reference'>Server ports reference</a></li>
             <li><a href='#server-changes'>What it changes on the PC</a></li>
             <li><a href='#monitoring'>Monitoring shared ports</a></li>
+            <li><a href='#both-modes'>Both modes together</a></li>
+            <li><a href='#other-uses'>Other uses</a></li>
             <li><a href='#editions'>Editions</a></li>
             <li><a href='#security'>Security</a></li>
           </ul>
@@ -198,6 +200,7 @@
         <section id='settings' class='section'>
           <p class='section-label'>Reference</p>
           <h2>Settings reference.</h2>
+          <p>The Settings window has three tabs. <strong>Client profiles</strong> and <strong>Server ports</strong> each start with a small diagram of which way bytes travel in that mode. <strong>About</strong> describes the program, both modes and other uses, with links to this documentation and the source code.</p>
           <h3>Profile columns</h3>
           <div class='table-wrap'>
             <table>
@@ -441,6 +444,93 @@
             <li><strong>Allow the monitoring server.</strong> Add its address (or the monitoring proxy's) to <strong>Allowed Clients</strong>.</li>
             <li><strong>Watch the service too.</strong> Monitor the <code>VcnsVirtualComBridgeServer</code> Windows service, or simply the TCP port, so you know if sharing stops.</li>
           </ul>
+        </section>
+
+        <section id='both-modes' class='section'>
+          <p class='section-label'>Both modes</p>
+          <h2>A serial device on one PC, its software on another.</h2>
+          <p>Server mode on the PC the device is plugged into, and client mode on the PC that runs its software, join the two over the network. The software sees a local COM port; the device sees its usual cable.</p>
+          <figure class='diagram'>
+            <svg viewBox='0 0 960 250' role='img' aria-labelledby='both-title both-desc'>
+              <title id='both-title'>Client mode and server mode together</title>
+              <desc id='both-desc'>On the software PC, the serial application opens virtual port COM9 and the bridge in client mode connects over the network to TCP port 4003 on the device PC. There, the bridge service in server mode passes the bytes to COM3, where the device is attached.</desc>
+              <defs>
+                <marker id='arrow3' viewBox='0 0 10 10' refX='9' refY='5' markerWidth='7' markerHeight='7' orient='auto-start-reverse'>
+                  <path d='M0,0 L10,5 L0,10 z' fill='#373737'/>
+                </marker>
+              </defs>
+              <g font-family='Calibri, Helvetica, Arial, sans-serif' text-anchor='middle'>
+                <rect x='5' y='20' width='420' height='210' fill='none' stroke='#9a9a9a' stroke-dasharray='6 4'/>
+                <text x='215' y='42' fill='#444444' font-size='15' font-weight='700'>Software PC · client mode</text>
+                <rect x='535' y='20' width='420' height='210' fill='none' stroke='#9a9a9a' stroke-dasharray='6 4'/>
+                <text x='745' y='42' fill='#444444' font-size='15' font-weight='700'>Device PC · server mode</text>
+
+                <rect x='20' y='90' width='160' height='90' fill='#373737'/>
+                <text x='100' y='128' fill='#ffffff' font-size='16' font-weight='700'>Serial</text>
+                <text x='100' y='148' fill='#ffffff' font-size='16' font-weight='700'>application</text>
+                <rect x='250' y='90' width='160' height='90' fill='#0f79d0'/>
+                <text x='330' y='128' fill='#ffffff' font-size='16' font-weight='700'>Bridge</text>
+                <text x='330' y='150' fill='#ffffff' font-size='14'>client mode</text>
+
+                <rect x='550' y='90' width='160' height='90' fill='#0f79d0'/>
+                <text x='630' y='128' fill='#ffffff' font-size='16' font-weight='700'>Bridge service</text>
+                <text x='630' y='150' fill='#ffffff' font-size='14'>server mode</text>
+                <rect x='780' y='90' width='160' height='90' fill='#373737'/>
+                <text x='860' y='128' fill='#ffffff' font-size='16' font-weight='700'>Device</text>
+                <text x='860' y='150' fill='#d0d0d0' font-size='14'>USB or RS-232</text>
+
+                <line x1='184' y1='135' x2='246' y2='135' stroke='#373737' stroke-width='3' marker-start='url(#arrow3)' marker-end='url(#arrow3)'/>
+                <text x='215' y='122' fill='#222222' font-size='14' font-weight='700'>COM9</text>
+                <line x1='414' y1='135' x2='546' y2='135' stroke='#373737' stroke-width='3' stroke-dasharray='8 5' marker-start='url(#arrow3)' marker-end='url(#arrow3)'/>
+                <text x='480' y='122' fill='#222222' font-size='14' font-weight='700'>TCP 4003</text>
+                <text x='480' y='158' fill='#666666' font-size='13'>network or VPN</text>
+                <line x1='714' y1='135' x2='776' y2='135' stroke='#373737' stroke-width='3' marker-start='url(#arrow3)' marker-end='url(#arrow3)'/>
+                <text x='745' y='122' fill='#222222' font-size='14' font-weight='700'>COM3</text>
+              </g>
+            </svg>
+            <figcaption>The client profile's Target Server is the device PC, and its Target Port is the shared port (4003 here: 4000 + COM3).</figcaption>
+          </figure>
+          <ul class='bullets'>
+            <li>The software PC needs the virtual COM driver; the device PC doesn't, because it shares a real port.</li>
+            <li>Line settings are fixed on the device PC. The baud rate the software chooses on the virtual port isn't passed across.</li>
+            <li>One session at a time, end to end: if something else is connected to the shared port, the software PC gets <strong>Port in use</strong>.</li>
+          </ul>
+        </section>
+
+        <section id='other-uses' class='section'>
+          <p class='section-label'>Beyond LED screens</p>
+          <h2>Other uses.</h2>
+          <p>The bridge began as NovaStar Proxy, for LED display controllers, but nothing in it is specific to them. Anything that talks over a serial line and tolerates a little network delay can use it.</p>
+          <div class='card-grid'>
+            <article class='card'>
+              <h3>UPS monitoring</h3>
+              <p>Many UPS units report status and accept shutdown commands over RS-232. Share the UPS's port in server mode on the PC it's plugged into, and run the UPS software (the vendor's tool, NUT, apcupsd and the like) on a server elsewhere through a virtual COM port in client mode.</p>
+            </article>
+            <article class='card'>
+              <h3>Serial device servers</h3>
+              <p>Moxa, Lantronix and similar boxes put serial devices on the network in TCP server mode. Client mode gives Windows software a COM port for each, without the vendor's own driver.</p>
+            </article>
+            <article class='card'>
+              <h3>Industrial equipment</h3>
+              <p>PLCs, CNC machines and DNC software, drives and other controllers with a serial programming or data port.</p>
+            </article>
+            <article class='card'>
+              <h3>Instruments and peripherals</h3>
+              <p>Laboratory instruments, weighing scales, barcode scanners, label printers, and GPS or NMEA receivers.</p>
+            </article>
+            <article class='card'>
+              <h3>Building systems</h3>
+              <p>Building management, access control and alarm panels that are configured through a serial port.</p>
+            </article>
+            <article class='card'>
+              <h3>Consoles and modems</h3>
+              <p>Network equipment managed through a serial console, and modems or satellite terminals driven by serial tools.</p>
+            </article>
+          </div>
+          <div class='warning-callout'>
+            <h3>Timing-sensitive protocols</h3>
+            <p>The bridge forwards bytes as fast as the network allows, but it can't preserve exact gaps between them. Protocols that mark the end of a message by a silence on the line, such as some Modbus RTU set-ups, may not work through it. Request-and-reply protocols with generous time-outs work well.</p>
+          </div>
         </section>
 
         <section id='editions' class='section'>

@@ -42,6 +42,16 @@ public sealed record BridgeEdition
     /// </summary>
     public int ServerPortBase { get; init; } = 4000;
 
+    /// <summary>The edition's own paragraph at the top of the About tab: what it was made for. Null for none.</summary>
+    public string? AboutText { get; init; }
+
+    /// <summary>Links on the About tab, such as the documentation and source code.</summary>
+    public IReadOnlyList<EditionLink> Links { get; init; } =
+    [
+        new("VCNS Virtual COM Bridge documentation", "https://vcns.github.io/virtual-com/bridge.html"),
+        new("Source code and issues", "https://github.com/vcns/virtual-com"),
+    ];
+
     public static BridgeEdition Generic { get; } = new()
     {
         ProductName = "VCNS Virtual COM Bridge",
@@ -54,6 +64,9 @@ public sealed record BridgeEdition
     /// <summary>Completes "Another client… holds the session": ", such as Zabbix polling," or nothing.</summary>
     internal string OtherClientClause => OtherClientExample is null ? "" : $", such as {OtherClientExample},";
 }
+
+/// <summary>A link shown on the About tab.</summary>
+public sealed record EditionLink(string Text, string Url);
 
 /// <summary>
 /// A reminder shown before a connection starts, and a follow-up after it ends. In <see cref="Text"/>, "{endpoint}" and

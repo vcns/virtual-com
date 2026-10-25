@@ -103,16 +103,20 @@ internal sealed class ServerSettingsPanel : UserControl
         _logPayload.AutoSize = true;
         _logPayload.CheckedChanged += (_, _) => { if (!_loading) _markDirty(); };
 
-        var root = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 6 };
+        var diagram = Flows.Server(_edition);
+        diagram.Dock = DockStyle.Fill;
+
+        var root = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 7 };
         root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-        foreach (var style in new[] { SizeType.AutoSize, SizeType.AutoSize, SizeType.AutoSize, SizeType.Percent, SizeType.AutoSize, SizeType.AutoSize })
+        foreach (var style in new[] { SizeType.AutoSize, SizeType.AutoSize, SizeType.AutoSize, SizeType.AutoSize, SizeType.Percent, SizeType.AutoSize, SizeType.AutoSize })
             root.RowStyles.Add(style == SizeType.Percent ? new RowStyle(SizeType.Percent, 100) : new RowStyle(SizeType.AutoSize));
         root.Controls.Add(intro, 0, 0);
-        root.Controls.Add(_enabled, 0, 1);
-        root.Controls.Add(statusRow, 0, 2);
-        root.Controls.Add(_grid, 0, 3);
-        root.Controls.Add(buttons, 0, 4);
-        root.Controls.Add(_logPayload, 0, 5);
+        root.Controls.Add(diagram, 0, 1);
+        root.Controls.Add(_enabled, 0, 2);
+        root.Controls.Add(statusRow, 0, 3);
+        root.Controls.Add(_grid, 0, 4);
+        root.Controls.Add(buttons, 0, 5);
+        root.Controls.Add(_logPayload, 0, 6);
         Controls.Add(root);
     }
 
