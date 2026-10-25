@@ -3,6 +3,13 @@ using Vcns.VirtualCom.Bridge.Configuration;
 
 namespace Vcns.VirtualCom.Desktop;
 
+internal enum TakeOverChoice
+{
+    TakeOver,
+    UseRunningCopy,
+    Cancel,
+}
+
 /// <summary>
 /// Task dialogs. A tray application has no window of its own, so when no owner is given the dialog is parented to a
 /// hidden top-most form; otherwise it can open behind other windows and go unnoticed.
@@ -64,6 +71,25 @@ internal static class Dialogs
         };
         var result = Show(page, null);
         return (result == connect, page.Verification.Checked);
+    }
+
+    /// <summary>Asked when this program starts while a different copy (another file or version) is already running.</summary>
+    public static TakeOverChoice TakeOver(string runningVersion, string runningFolder, string thisVersion, string thisFolder)
+    {
+        var takeOver = new TaskDialogCommandLinkButton("Close it and start this copy", $"Version {thisVersion}, from {thisFolder}");
+        var useRunning = new TaskDialogCommandLinkButton("Use the running copy", "Opens its Settings window");
+        var page = new TaskDialogPage
+        {
+            Caption = Caption,
+            Heading = $"{Caption} {runningVersion} is already running",
+            Text = $"Only one copy can run at a time. The one running is version {runningVersion}, from {runningFolder}.\n\n"
+                + "Closing it ends any connections it has open. If it has unsaved settings, it asks about them first.",
+            Icon = TaskDialogIcon.Information,
+            Buttons = { takeOver, useRunning, TaskDialogButton.Cancel },
+            DefaultButton = takeOver,
+        };
+        var result = Show(page, null);
+        return result == takeOver ? TakeOverChoice.TakeOver : result == useRunning ? TakeOverChoice.UseRunningCopy : TakeOverChoice.Cancel;
     }
 
     private static TaskDialogButton Show(TaskDialogPage page, IWin32Window? owner)

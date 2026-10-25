@@ -70,6 +70,9 @@ internal sealed class TrayApplicationContext : ApplicationContext
     /// <summary>Opens the settings window from any thread (used when the program is launched a second time).</summary>
     public void PostShowSettings() => Post(ShowSettings);
 
+    /// <summary>Exits cleanly from any thread (used when another build of the program takes over).</summary>
+    public void PostExit() => Post(Exit);
+
     public void ShowSettings() => ShowSettings(serverPage: false);
 
     private void ShowSettings(bool serverPage)
