@@ -35,6 +35,9 @@ internal sealed class ServerPort
     /// <summary>The real COM port to share, e.g. COM3.</summary>
     public string ComPort { get; set; } = "";
 
+    /// <summary>What's attached, e.g. "Acme Leeds – MCTRL300 #1". Shown in status, the tray and the logs.</summary>
+    public string? Label { get; set; }
+
     public int TcpPort { get; set; }
 
     /// <summary>The local address to listen on: one interface's address, or 0.0.0.0 (or ::) for every interface.</summary>
@@ -56,7 +59,13 @@ internal sealed class ServerPort
         return copy;
     }
 
-    /// <summary>True when a running listener for <paramref name="other"/> can be kept as it is.</summary>
+    /// <summary>The COM port with its label, e.g. "COM3 · MCTRL300 #1".</summary>
+    public string Title => Label is null ? ComPort : $"{ComPort} · {Label}";
+
+    /// <summary>
+    /// True when a running listener for <paramref name="other"/> can be kept as it is. The label doesn't count: it can
+    /// change without disconnecting anyone.
+    /// </summary>
     public bool SameAs(ServerPort other) =>
         Id == other.Id
         && Enabled == other.Enabled

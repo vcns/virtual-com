@@ -24,7 +24,14 @@ internal sealed class PortJob
     /// <summary>A server configuration to save and apply (service, firewall), or null to leave server mode alone.</summary>
     public ServerConfig? Server { get; set; }
 
-    public bool IsEmpty => CreateVcns.Count + RemoveVcns.Count + CreateCom0com.Count + RemoveCom0comPairs.Count == 0 && Server is null;
+    /// <summary>
+    /// Names to show in Device Manager for VCNS ports, e.g. COM9 → "Acme – Main hall" (shown as "Acme – Main hall (COM9)").
+    /// A null name restores the standard one. Applied after any ports are created.
+    /// </summary>
+    public Dictionary<string, string?> PortNames { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+
+    public bool IsEmpty => CreateVcns.Count + RemoveVcns.Count + CreateCom0com.Count + RemoveCom0comPairs.Count + PortNames.Count == 0
+        && Server is null;
 }
 
 internal sealed class PortJobResult
@@ -105,6 +112,8 @@ internal static class VirtualPortSetup
             }
             foreach (var port in job.RemoveVcns)
                 ok &= RemoveVcnsPort(port, log);
+            foreach (var (port, name) in job.PortNames)
+                ok &= NameVcnsPort(port, name, log);
 
             if (job.CreateCom0com.Count + job.RemoveCom0comPairs.Count > 0)
             {
@@ -183,6 +192,29 @@ internal static class VirtualPortSetup
         catch (Exception ex) when (ex is Win32Exception or InvalidOperationException)
         {
             log.AppendLine($"Creating {port} failed: {ex.Message}");
+            return false;
+        }
+    }
+
+    private static bool NameVcnsPort(string port, string? name, StringBuilder log)
+    {
+        // A name is "Customer – Label", so allow two fields' worth plus the separator.
+        var problems = new List<string>();
+        ConfigValidator.AddTextErrors(problems, "The name", name, ConfigValidator.MaxNameLength * 2 + 3);
+        if (problems.Count > 0)
+        {
+            log.AppendLine($"Refused to name {port}: {problems[0]}");
+            return false;
+        }
+        try
+        {
+            VirtualComDevices.SetDisplayName(port, name);
+            log.AppendLine(name is null ? $"{port} has its standard name again." : $"{port} is now shown as \"{name} ({port.ToUpperInvariant()})\".");
+            return true;
+        }
+        catch (Exception ex) when (ex is Win32Exception or InvalidOperationException)
+        {
+            log.AppendLine($"Naming {port} failed: {ex.Message}");
             return false;
         }
     }

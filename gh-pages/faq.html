@@ -140,6 +140,10 @@
               <p>NovaStar Proxy is an edition of the bridge for NovaStar LED controllers: the same application with NovaLCT wording, port 5200 as the default, and a reminder to pause Zabbix polling before connecting. Improvements to the bridge reach every edition.</p>
             </article>
             <article class='faq-item'>
+              <h3>We look after dozens of customers. How do we keep profiles apart?</h3>
+              <p>Give each profile a <strong>Customer</strong>, a <strong>Label</strong> and the <strong>Device</strong> make and model, plus any <strong>Notes</strong>. The tray menu groups profiles by customer, Settings can filter and sort them, and each virtual port is named after its customer and label in Device Manager, e.g. "Acme Ltd – Main hall LED wall (COM9)". See <a href='bridge.html#organising'>organising many customers</a>.</p>
+            </article>
+            <article class='faq-item'>
               <h3>Will it reconnect if the link drops?</h3>
               <p>No, by design. Many such devices accept one session at a time, and an automatic reconnect could take that session from a monitoring system or a colleague without anyone choosing to. The bridge tells you the link dropped; you start it again when it suits.</p>
             </article>

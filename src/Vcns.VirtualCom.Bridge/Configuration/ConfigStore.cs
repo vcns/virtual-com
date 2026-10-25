@@ -105,6 +105,10 @@ internal sealed class ConfigStore(string filePath)
             p.TargetServer = (p.TargetServer ?? "").Trim();
             p.LocalComPort = (p.LocalComPort ?? "").Trim().ToUpperInvariant();
             p.BridgePort = string.IsNullOrWhiteSpace(p.BridgePort) ? null : p.BridgePort.Trim().ToUpperInvariant();
+            p.Customer = Tidy(p.Customer);
+            p.Label = Tidy(p.Label);
+            p.Device = Tidy(p.Device);
+            p.Notes = Tidy(p.Notes);
             if (p.Id == Guid.Empty)
                 p.Id = Guid.NewGuid();
         }
@@ -115,6 +119,9 @@ internal sealed class ConfigStore(string filePath)
             config.Options.ShowZabbixReminder = null;
         }
     }
+
+    /// <summary>Trims free text and treats blank as absent, so optional fields are either null or meaningful.</summary>
+    internal static string? Tidy(string? text) => string.IsNullOrWhiteSpace(text) ? null : text.Trim();
 
     private static void TryDelete(string path)
     {

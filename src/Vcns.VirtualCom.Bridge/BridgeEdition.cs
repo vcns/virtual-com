@@ -27,6 +27,9 @@ public sealed record BridgeEdition
     /// <summary>Filled in for new profiles. Null leaves Target Port blank.</summary>
     public int? DefaultTargetPort { get; init; }
 
+    /// <summary>Makes and models offered when typing in the Device column, alongside ones already used.</summary>
+    public IReadOnlyList<string> DeviceSuggestions { get; init; } = [];
+
     /// <summary>A typical other client that may hold the device's only session, e.g. "Zabbix polling". Null for none.</summary>
     public string? OtherClientExample { get; init; }
 

@@ -115,7 +115,7 @@ internal static class ServerSetup
                 "dir=in", "action=allow", "protocol=TCP",
                 $"localport={port.TcpPort}", $"localip={local}", $"remoteip={remote}",
                 $"program={exe}", "enable=yes",
-                $"description=Shares {port.ComPort} on TCP port {port.TcpPort}.",
+                $"description=Shares {port.Title} on TCP port {port.TcpPort}.",
             ], log) == 0;
         }
         log.AppendLine(ok ? "Firewall rules set." : "Some firewall rules couldn't be set; see above.");

@@ -63,9 +63,10 @@ vcomctl list
 vcomctl install-driver <path-to-vcnsvcom.inf>   (administrator)
 vcomctl create COM20                            (administrator)
 vcomctl remove COM20                            (administrator)
+vcomctl label COM20 "Workshop test rig"         (administrator; no text restores the standard name)
 ```
 
-`create` sets the COM number you choose and claims it in Windows' COM name database.
+`create` sets the COM number you choose and claims it in Windows' COM name database. `label` sets the name Device Manager shows, e.g. "Workshop test rig (COM20)" (`VirtualComDevices.SetDisplayName` in the library).
 
 ## Bridge applications
 
@@ -78,6 +79,7 @@ The bridge works in two directions.
 ```
 
 - **Profiles** map one virtual COM port to one TCP endpoint. New ports are numbered above every COM port already used or reserved on the PC.
+- **Labelled for many customers:** each profile can carry a customer, label, device (make and model) and notes. The tray menu groups profiles by customer, Settings can filter and sort them, and each virtual port is named after its customer and label in Device Manager.
 - **On demand:** nothing connects until you start a profile from the tray menu, and nothing reconnects by itself.
 - **Single-session safe:** at most one connection per endpoint, a release interval between connections, and a device that drops a second client is reported as **in use** rather than retried.
 - **Transparent:** bytes are forwarded unchanged in both directions, as soon as they arrive.

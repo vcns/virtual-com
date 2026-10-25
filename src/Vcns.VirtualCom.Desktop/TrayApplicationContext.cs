@@ -122,20 +122,20 @@ internal sealed class TrayApplicationContext : ApplicationContext
         var profiles = _config.Profiles.Where(p => p.Enabled).OrderBy(p => ComOrder(p.LocalComPort)).ToList();
         if (profiles.Count == 0)
             start.DropDownItems.Add(new ToolStripMenuItem("No enabled profiles — add one in Settings → GUI") { Enabled = false });
-        foreach (var profile in profiles)
+
+        // With many customers, each gets its own submenu; profiles without one stay at the top level, after them.
+        foreach (var group in profiles.Where(p => p.Customer is not null)
+                     .GroupBy(p => p.Customer!, StringComparer.CurrentCultureIgnoreCase)
+                     .OrderBy(g => g.Key, StringComparer.CurrentCultureIgnoreCase))
         {
-            var session = _sessions.Find(profile.Id);
-            var last = session is null ? _sessions.GetLastOutcome(profile.Id) : null;
-            var failed = last is not null && last.Outcome != SessionOutcome.StoppedByUser;
-            var label = session is not null ? StateLabel(session) : last is not null ? OutcomeLabel(last.Outcome) : "Stopped";
-            var id = profile.Id;
-            start.DropDownItems.Add(new ToolStripMenuItem($"{profile.LocalComPort} → {profile.Endpoint}    ({label})", null, (_, _) => StartProfile(id))
-            {
-                Enabled = session is null && !_exiting,
-                Image = _dots[session is not null ? StatusOf(session) : failed ? TrayStatus.Error : TrayStatus.Idle],
-                ToolTipText = failed ? last!.Message : null,
-            });
+            var entries = group.Select(StartItem).ToList();
+            var status = entries.Select(e => e.Status).DefaultIfEmpty(TrayStatus.Idle).Max();
+            var submenu = new ToolStripMenuItem(group.Key) { Image = _dots[status] };
+            submenu.DropDownItems.AddRange(entries.Select(e => (ToolStripItem)e.Item).ToArray());
+            start.DropDownItems.Add(submenu);
         }
+        foreach (var profile in profiles.Where(p => p.Customer is null))
+            start.DropDownItems.Add(StartItem(profile).Item);
         items.Add(start);
 
         var active = _sessions.ActiveSessions.OrderBy(s => ComOrder(s.Profile.LocalComPort)).ToList();
@@ -145,12 +145,16 @@ internal sealed class TrayApplicationContext : ApplicationContext
             foreach (var session in active)
             {
                 var id = session.Profile.Id;
-                var item = new ToolStripMenuItem($"{session.Profile.LocalComPort} — {StateLabel(session)}") { Image = _dots[StatusOf(session)] };
+                // Labels come from the saved settings, so one edited while connected shows straight away.
+                var profile = _config.Profiles.FirstOrDefault(p => p.Id == id) ?? session.Profile;
+                var item = new ToolStripMenuItem($"{profile.Title} — {StateLabel(session)}") { Image = _dots[StatusOf(session)] };
                 item.DropDownItems.Add(new ToolStripMenuItem(session.WasConnected ? "Disconnect" : "Cancel", null, (_, _) => _sessions.Stop(id))
                 {
                     Enabled = session.State is SessionState.Starting or SessionState.Connected,
                 });
                 item.DropDownItems.Add(new ToolStripSeparator());
+                foreach (var about in Describe(profile))
+                    item.DropDownItems.Add(InfoItem(about));
                 item.DropDownItems.Add(InfoItem($"Target: {session.Profile.Endpoint} via {session.PortDescription}"));
                 item.DropDownItems.Add(InfoItem(session.StatusText));
                 if (session.DescribePeer() is { } peer)
@@ -178,6 +182,35 @@ internal sealed class TrayApplicationContext : ApplicationContext
         _menu.Items.Clear();
         _menu.Items.AddRange(items.ToArray());
         _menu.ResumeLayout();
+    }
+
+    /// <summary>A Start menu entry for a profile, with its status for the dot and for its customer's submenu.</summary>
+    private (ToolStripMenuItem Item, TrayStatus Status) StartItem(ConnectionProfile profile)
+    {
+        var session = _sessions.Find(profile.Id);
+        var last = session is null ? _sessions.GetLastOutcome(profile.Id) : null;
+        var failed = last is not null && last.Outcome != SessionOutcome.StoppedByUser;
+        var label = session is not null ? StateLabel(session) : last is not null ? OutcomeLabel(last.Outcome) : "Stopped";
+        var status = session is not null ? StatusOf(session) : failed ? TrayStatus.Error : TrayStatus.Idle;
+        var tip = string.Join("\n", (failed ? [last!.Message] : Array.Empty<string>()).Concat(Describe(profile)));
+        var id = profile.Id;
+        return (new ToolStripMenuItem($"{profile.Title} → {profile.Endpoint}    ({label})", null, (_, _) => StartProfile(id))
+        {
+            Enabled = session is null && !_exiting,
+            Image = _dots[status],
+            ToolTipText = tip.Length > 0 ? tip : null,
+        }, status);
+    }
+
+    /// <summary>A profile's customer, device and notes, one line each, for menus and tool tips.</summary>
+    private static IEnumerable<string> Describe(ConnectionProfile profile)
+    {
+        if (profile.Customer is { } customer)
+            yield return $"Customer: {customer}";
+        if (profile.Device is { } device)
+            yield return $"Device: {device}";
+        if (profile.Notes is { } notes)
+            yield return $"Notes: {(notes.Length > 120 ? notes[..117] + "…" : notes)}";
     }
 
     /// <summary>Server mode's live state, read from the service and its status file. Null when server mode isn't used.</summary>
@@ -209,7 +242,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         foreach (var port in shared)
         {
             var portStatus = snapshot.StatusOf(port.ComPort);
-            menu.DropDownItems.Add(InfoItem($"{port.ComPort} on TCP {port.TcpPort} — {portStatus?.Describe() ?? "not shared"}"));
+            menu.DropDownItems.Add(InfoItem($"{port.Title} on TCP {port.TcpPort} — {portStatus?.Describe() ?? "not shared"}"));
             if (portStatus?.LastEvent is { } lastEvent)
                 menu.DropDownItems.Add(InfoItem($"      {lastEvent}"));
         }
@@ -237,13 +270,13 @@ internal sealed class TrayApplicationContext : ApplicationContext
         var errors = ConfigValidator.ValidateProfile(profile);
         if (errors.Count > 0)
         {
-            Dialogs.Error($"Can't start {profile.LocalComPort}", string.Join("\n", errors) + "\n\nFix the profile in Settings → GUI.");
+            Dialogs.Error($"Can't start {profile.Title}", string.Join("\n", errors) + "\n\nFix the profile in Settings → GUI.");
             return;
         }
 
         if (!PortTarget.TryResolve(profile, PortInventory.Capture(includeDeviceScan: false), out var target, out var problem))
         {
-            Dialogs.Error($"Can't start {profile.LocalComPort}", problem);
+            Dialogs.Error($"Can't start {profile.Title}", problem);
             return;
         }
 
@@ -263,7 +296,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         }
         catch (StartRejectedException ex)
         {
-            Dialogs.Error($"Can't start {profile.LocalComPort}", ex.Message);
+            Dialogs.Error($"Can't start {profile.Title}", ex.Message);
         }
         UpdateTrayStatus();
     }
@@ -284,9 +317,10 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private void OnSessionChanged(ProxySession session)
     {
         var port = session.Profile.LocalComPort;
+        var title = BalloonTitle((_config.Profiles.FirstOrDefault(p => p.Id == session.Profile.Id) ?? session.Profile).Title);
         if (!_exiting && session.State == SessionState.Connected && _announcedConnected.Add(session))
         {
-            _tray.ShowBalloonTip(4000, $"{port} connected",
+            _tray.ShowBalloonTip(4000, $"{title} connected",
                 $"{port} is connected to {session.Profile.Endpoint}. {_edition.SerialApplicationAtStart} can use {port} now.", ToolTipIcon.Info);
         }
 
@@ -296,18 +330,18 @@ internal sealed class TrayApplicationContext : ApplicationContext
             if (session.Outcome == SessionOutcome.StoppedByUser)
             {
                 if (session.WasConnected)
-                    _tray.ShowBalloonTip(4000, $"{port} disconnected", $"The connection to {session.Profile.Endpoint} is closed. {resume}".TrimEnd(), ToolTipIcon.Info);
+                    _tray.ShowBalloonTip(4000, $"{title} disconnected", $"The connection to {session.Profile.Endpoint} is closed. {resume}".TrimEnd(), ToolTipIcon.Info);
             }
             else if (!session.WasConnected)
             {
                 _lastAttemptFailed = true;
                 UpdateTrayStatus();
-                Dialogs.Error($"{port} could not connect", session.OutcomeMessage ?? "The connection failed.");
+                Dialogs.Error($"{title} could not connect", session.OutcomeMessage ?? "The connection failed.");
             }
             else
             {
                 _lastAttemptFailed = true;
-                _tray.ShowBalloonTip(8000, $"{port} disconnected", $"{session.OutcomeMessage} {resume}".TrimEnd(), ToolTipIcon.Warning);
+                _tray.ShowBalloonTip(8000, $"{title} disconnected", $"{session.OutcomeMessage} {resume}".TrimEnd(), ToolTipIcon.Warning);
             }
         }
         UpdateTrayStatus();
@@ -439,6 +473,9 @@ internal sealed class TrayApplicationContext : ApplicationContext
     };
 
     private static int ComOrder(string port) => ConfigValidator.TryParseComNumber(port, out var n) ? n : int.MaxValue;
+
+    // Notification titles are cut off at 63 characters; leave room for " disconnected".
+    private static string BalloonTitle(string title) => title.Length > 48 ? title[..47] + "…" : title;
 
     private static string FormatBytes(long bytes) => bytes switch
     {

@@ -70,7 +70,7 @@ internal sealed class PortServer : IAsyncDisposable
         }
     }
 
-    private string Name => $"{Port.ComPort} on {Port.Endpoint}";
+    private string Name => $"{Port.Title} on {Port.Endpoint}";
 
     public void Start() => _run = Task.Run(RunAsync);
 
@@ -81,6 +81,7 @@ internal sealed class PortServer : IAsyncDisposable
             return new PortStatus
             {
                 ComPort = Port.ComPort,
+                Label = Port.Label,
                 TcpPort = Port.TcpPort,
                 ListenAddress = Port.ListenAddress,
                 State = _state.ToString(),

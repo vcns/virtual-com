@@ -10,6 +10,8 @@ const string Usage = """
       vcomctl install-driver <inf>       Add the driver package to the driver store (admin)
       vcomctl create COMn                Create a port called COMn (admin)
       vcomctl remove COMn                Remove a port (admin)
+      vcomctl label COMn ["text"]        Name the port in Device Manager, e.g. "Main hall (COM9)";
+                                         no text restores the standard name (admin)
     """;
 
 try
@@ -37,6 +39,11 @@ try
         case ["remove", var target]:
             VirtualComDevices.Remove(target);
             Console.WriteLine($"Removed {target}.");
+            return 0;
+
+        case ["label", var port, .. var words] when words.Length <= 1:
+            VirtualComDevices.SetDisplayName(port, words.FirstOrDefault());
+            Console.WriteLine(words.Length == 0 ? $"{port} has its standard name again." : $"{port} is now shown as \"{words[0]} ({port.ToUpperInvariant()})\".");
             return 0;
 
         default:

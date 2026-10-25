@@ -38,9 +38,33 @@ internal sealed class ConnectionProfile
     /// </summary>
     public string? BridgePort { get; set; }
 
+    /// <summary>Who or where the device belongs to, e.g. "Acme Ltd, Leeds". The tray menu groups profiles by it.</summary>
+    public string? Customer { get; set; }
+
+    /// <summary>What this port is for, e.g. "Main hall LED wall".</summary>
+    public string? Label { get; set; }
+
+    /// <summary>The device's make and model, e.g. "NovaPro UHD Jr".</summary>
+    public string? Device { get; set; }
+
+    /// <summary>Anything else worth knowing, such as which monitoring host polls it or who to call.</summary>
+    public string? Notes { get; set; }
+
     public string Endpoint => TargetServer.Contains(':') ? $"[{TargetServer}]:{TargetPort}" : $"{TargetServer}:{TargetPort}";
 
-    public string DisplayName => $"{LocalComPort} → {Endpoint}";
+    public string DisplayName => $"{Title} → {Endpoint}";
+
+    /// <summary>The COM port with its label, e.g. "COM9 · Main hall LED wall", for menus and notifications.</summary>
+    public string Title => Label is null ? LocalComPort : $"{LocalComPort} · {Label}";
+
+    /// <summary>The name to give the virtual port in Device Manager (before "(COM9)"), or null for the standard name.</summary>
+    public string? PortDisplayName => (Customer, Label) switch
+    {
+        (null, null) => null,
+        ({ } customer, null) => customer,
+        (null, { } label) => label,
+        ({ } customer, { } label) => $"{customer} – {label}",
+    };
 
     public ConnectionProfile Clone() => (ConnectionProfile)MemberwiseClone();
 

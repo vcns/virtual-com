@@ -85,7 +85,27 @@ internal static partial class ConfigValidator
             else if (string.Equals(bridge, profile.LocalComPort, StringComparison.OrdinalIgnoreCase))
                 errors.Add("Proxy-side port must be the other end of the virtual pair, not the Local COM Port itself.");
         }
+
+        AddTextErrors(errors, "Customer", profile.Customer, MaxNameLength);
+        AddTextErrors(errors, "Label", profile.Label, MaxNameLength);
+        AddTextErrors(errors, "Device", profile.Device, MaxNameLength);
+        AddTextErrors(errors, "Notes", profile.Notes, MaxNotesLength);
         return errors;
+    }
+
+    public const int MaxNameLength = 80;
+
+    public const int MaxNotesLength = 1000;
+
+    /// <summary>Free-text fields: bounded, and without control characters, which would break menus and Device Manager names.</summary>
+    internal static void AddTextErrors(List<string> errors, string field, string? value, int maxLength)
+    {
+        if (value is null)
+            return;
+        if (value.Length > maxLength)
+            errors.Add($"{field} is {value.Length} characters long; the limit is {maxLength}.");
+        if (value.Any(char.IsControl))
+            errors.Add($"{field} contains a line break or other control character.");
     }
 
     /// <summary>Connected profiles can't be removed or have their connection fields changed.</summary>

@@ -45,8 +45,12 @@ internal sealed class ServerHost : IAsyncDisposable
             var wanted = config.Enabled ? config.Ports.Where(p => p.Enabled).ToList() : [];
             foreach (var server in Servers)
             {
-                if (server.LogPayload == config.LogPayload && wanted.Any(w => w.SameAs(server.Port)))
+                if (server.LogPayload == config.LogPayload && wanted.FirstOrDefault(w => w.SameAs(server.Port)) is { } same)
+                {
+                    // A new label doesn't need a restart, so the connected client stays connected.
+                    server.Port.Label = same.Label;
                     continue;
+                }
                 lock (_servers)
                     _servers.Remove(server);
                 await server.DisposeAsync();
@@ -61,7 +65,7 @@ internal sealed class ServerHost : IAsyncDisposable
                 server.Start();
             }
             Log.Info(config.Enabled
-                ? $"Server configuration applied: {wanted.Count} shared port(s){(wanted.Count == 0 ? "" : ": " + string.Join(", ", wanted.Select(p => $"{p.ComPort} on {p.Endpoint}")))}."
+                ? $"Server configuration applied: {wanted.Count} shared port(s){(wanted.Count == 0 ? "" : ": " + string.Join(", ", wanted.Select(p => $"{p.Title} on {p.Endpoint}")))}."
                 : "Server mode is switched off; no ports are shared.");
         }
         finally

@@ -132,6 +132,11 @@ Import-Certificate -FilePath .\vcom-test-signing.cer -CertStoreLocation Cert:\Lo
             </div>
           </div>
           <p>A port does nothing useful until a host application opens its host end. The <a href='developer-guide.html#echo'>developer guide</a> has a ten-line echo example to try.</p>
+          <h3>Give it a name</h3>
+          <p>Device Manager calls each port <em>VCNS Virtual COM Port (COM20)</em>. To show what it's for instead, in an administrator prompt run:</p>
+<pre><code>vcomctl label COM20 "Workshop test rig"     # shown as "Workshop test rig (COM20)"
+vcomctl label COM20                         # back to the standard name</code></pre>
+          <p>The name also appears in programs that list ports by name. Updating the driver can restore the standard name.</p>
         </section>
 
         <section id='remove' class='section'>

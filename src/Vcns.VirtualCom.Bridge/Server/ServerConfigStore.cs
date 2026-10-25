@@ -68,6 +68,7 @@ internal static class ServerConfigStore
         foreach (var p in config.Ports)
         {
             p.ComPort = (p.ComPort ?? "").Trim().ToUpperInvariant();
+            p.Label = ConfigStore.Tidy(p.Label);
             p.ListenAddress = (p.ListenAddress ?? "").Trim();
             p.AllowedClients = (p.AllowedClients ?? [])
                 .Select(c => c.Trim())

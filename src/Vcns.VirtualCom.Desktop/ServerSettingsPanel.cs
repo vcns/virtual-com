@@ -30,6 +30,7 @@ internal sealed class ServerSettingsPanel : UserControl
     private readonly DataGridView _grid = new();
     private readonly DataGridViewCheckBoxColumn _onColumn = new();
     private readonly DataGridViewComboBoxColumn _comColumn = new();
+    private readonly DataGridViewTextBoxColumn _labelColumn = new();
     private readonly DataGridViewTextBoxColumn _tcpColumn = new();
     private readonly DataGridViewComboBoxColumn _listenColumn = new();
     private readonly DataGridViewTextBoxColumn _clientsColumn = new();
@@ -136,6 +137,10 @@ internal sealed class ServerSettingsPanel : UserControl
         _comColumn.FillWeight = 9;
         _comColumn.DisplayStyle = DataGridViewComboBoxDisplayStyle.DropDownButton;
         _comColumn.ToolTipText = "The COM port to share. The list shows the ports present on this PC now.";
+        _labelColumn.HeaderText = "Label";
+        _labelColumn.FillWeight = 14;
+        _labelColumn.MaxInputLength = ConfigValidator.MaxNameLength;
+        _labelColumn.ToolTipText = "Optional. What's attached, e.g. \"Acme Leeds – MCTRL300 #1\". Shown in the status, tray menu and server log.";
         _tcpColumn.HeaderText = "TCP Port";
         _tcpColumn.FillWeight = 8;
         _tcpColumn.MaxInputLength = 5;
@@ -166,7 +171,7 @@ internal sealed class ServerSettingsPanel : UserControl
         _statusColumn.FillWeight = 22;
         _statusColumn.ReadOnly = true;
         _statusColumn.DefaultCellStyle.ForeColor = SystemColors.GrayText;
-        _grid.Columns.AddRange(_onColumn, _comColumn, _tcpColumn, _listenColumn, _clientsColumn, _baudColumn, _formatColumn, _flowColumn, _statusColumn);
+        _grid.Columns.AddRange(_onColumn, _comColumn, _labelColumn, _tcpColumn, _listenColumn, _clientsColumn, _baudColumn, _formatColumn, _flowColumn, _statusColumn);
 
         _grid.CurrentCellDirtyStateChanged += (_, _) =>
         {
@@ -212,7 +217,7 @@ internal sealed class ServerSettingsPanel : UserControl
             _logPayload.Checked = config.LogPayload;
             foreach (var port in config.Ports)
             {
-                AddGridRow(port.Id, port.Enabled, NullIfEmpty(port.ComPort)!, port.TcpPort.ToString(CultureInfo.InvariantCulture),
+                AddGridRow(port.Id, port.Enabled, NullIfEmpty(port.ComPort)!, port.Label ?? "", port.TcpPort.ToString(CultureInfo.InvariantCulture),
                     port.ListenAddress, string.Join(", ", port.AllowedClients), port.Serial.BaudRate.ToString(CultureInfo.InvariantCulture),
                     port.Serial.Format, FlowText(port.Serial.FlowControl), "");
             }
@@ -262,6 +267,7 @@ internal sealed class ServerSettingsPanel : UserControl
                 Id = row.Tag is Guid id ? id : Guid.NewGuid(),
                 Enabled = row.Cells[_onColumn.Index].Value is true,
                 ComPort = CellText(row, _comColumn),
+                Label = CellText(row, _labelColumn),
                 TcpPort = tcp,
                 ListenAddress = CellText(row, _listenColumn),
                 AllowedClients = CellText(row, _clientsColumn).Split([',', ';', ' '], StringSplitOptions.RemoveEmptyEntries).ToList(),
@@ -330,7 +336,7 @@ internal sealed class ServerSettingsPanel : UserControl
         _loading = true;
         try
         {
-            row = AddGridRow(Guid.NewGuid(), true, NullIfEmpty(com)!, "", listen, DefaultClients(listen), "115200", "8N1", "None", "");
+            row = AddGridRow(Guid.NewGuid(), true, NullIfEmpty(com)!, "", "", listen, DefaultClients(listen), "115200", "8N1", "None", "");
             SuggestTcpPort(row);
         }
         finally

@@ -84,6 +84,36 @@ public static class VirtualComDevices
         }
     }
 
+    /// <summary>
+    /// Sets the name Device Manager and port lists show for a port, e.g. "Main hall LED wall (COM9)". A null or blank
+    /// label restores the standard "VCNS Virtual COM Port (COM9)". Requires administrator rights. Reinstalling or
+    /// updating the driver on the port can restore the standard name.
+    /// </summary>
+    public static void SetDisplayName(string portName, string? label)
+    {
+        var port = List().FirstOrDefault(p => string.Equals(p.PortName, portName, StringComparison.OrdinalIgnoreCase))
+            ?? throw new InvalidOperationException($"No virtual COM port called {portName}.");
+
+        var classGuid = PortsClass;
+        var set = SetupDiCreateDeviceInfoList(ref classGuid, IntPtr.Zero);
+        if (set == InvalidHandle)
+            throw LastError("Creating a device information set failed");
+        try
+        {
+            var device = SP_DEVINFO_DATA.Create();
+            if (!SetupDiOpenDeviceInfoW(set, port.InstanceId, IntPtr.Zero, 0, ref device))
+                throw LastError($"Opening {port.InstanceId} failed");
+            var name = $"{(string.IsNullOrWhiteSpace(label) ? DeviceDescription : label.Trim())} ({port.PortName})";
+            var bytes = Encoding.Unicode.GetBytes(name + "\0");
+            if (!SetupDiSetDeviceRegistryPropertyW(set, ref device, SPDRP_FRIENDLYNAME, bytes, (uint)bytes.Length))
+                throw LastError($"Naming {port.PortName} failed");
+        }
+        finally
+        {
+            SetupDiDestroyDeviceInfoList(set);
+        }
+    }
+
     /// <summary>Removes the port with the given COM name or device instance ID.</summary>
     public static void Remove(string portNameOrInstanceId)
     {

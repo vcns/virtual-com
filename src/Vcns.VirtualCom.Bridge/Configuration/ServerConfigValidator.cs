@@ -47,6 +47,8 @@ internal static class ServerConfigValidator
         if (port.TcpPort is < 1 or > 65535)
             errors.Add($"TCP Port {port.TcpPort} is out of range (1–65535).");
 
+        ConfigValidator.AddTextErrors(errors, "Label", port.Label, ConfigValidator.MaxNameLength);
+
         if (!IPAddress.TryParse(port.ListenAddress, out var listen))
             errors.Add($"Listen address '{port.ListenAddress}' is not an IP address. Choose one of this PC's addresses, or all interfaces.");
         else if (listen.AddressFamily == AddressFamily.InterNetwork && port.ListenAddress.Count(c => c == '.') != 3)

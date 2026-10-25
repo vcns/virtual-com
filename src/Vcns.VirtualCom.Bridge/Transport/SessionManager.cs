@@ -84,7 +84,8 @@ internal sealed class SessionManager : ISessionCoordinator
             _lastOutcomes.Remove(profile.Id);
         }
 
-        Log.Info($"Starting {profile.LocalComPort} → {profile.Endpoint} (proxy side {target.Description}).");
+        var about = string.Join(", ", new[] { profile.Customer, profile.Device }.OfType<string>());
+        Log.Info($"Starting {profile.Title}{(about.Length > 0 ? $" ({about})" : "")} → {profile.Endpoint} (proxy side {target.Description}).");
         session.Start();
         SessionChanged?.Invoke(session);
         return session;

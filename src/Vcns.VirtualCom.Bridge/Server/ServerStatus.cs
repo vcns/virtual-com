@@ -43,6 +43,8 @@ internal sealed class PortStatus
 {
     public string ComPort { get; set; } = "";
 
+    public string? Label { get; set; }
+
     public int TcpPort { get; set; }
 
     public string ListenAddress { get; set; } = "";
