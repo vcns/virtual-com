@@ -24,12 +24,14 @@ internal static class ServerSetup
     {
         var locations = new ServerLocations(edition);
         var exe = Environment.ProcessPath ?? throw new InvalidOperationException("Can't determine this program's path.");
+        // The service runs a program file, so that file must be one standard users can't replace. Run from anywhere
+        // else (Downloads, a build folder), the service gets its own copy in Program Files.
+        var serviceExe = exe;
         if (config.Enabled && !IsProtectedLocation(exe))
         {
-            log.AppendLine($"Server mode runs this program as a Windows service, so it must be in a folder only administrators can change, "
-                + $"such as C:\\Program Files\\{edition.ProductName}. It's running from {Path.GetDirectoryName(exe)}. "
-                + "Move it, start it from there, and save again. Nothing was changed.");
-            return false;
+            serviceExe = InstallServiceCopy(exe, locations, log);
+            if (serviceExe is null)
+                return false;
         }
 
         SecureFolders(locations, log);
@@ -38,8 +40,18 @@ internal static class ServerSetup
             ? $"Server settings saved: {config.Ports.Count(p => p.Enabled)} shared port(s)."
             : "Server settings saved: server mode is off.");
 
-        var ok = ConfigureFirewall(config, locations, exe, log);
-        ok &= config.Enabled ? InstallAndStartService(locations, exe, log) : RemoveService(locations, log);
+        var ok = ConfigureFirewall(config, locations, serviceExe, log);
+        if (config.Enabled)
+        {
+            ok &= InstallAndStartService(locations, serviceExe, log);
+        }
+        else
+        {
+            var removed = RemoveService(locations, log);
+            ok &= removed;
+            if (removed)
+                RemoveServiceCopy(exe, locations, log);
+        }
         return ok;
     }
 
@@ -50,6 +62,120 @@ internal static class ServerSetup
             .Select(Environment.GetFolderPath)
             .Where(folder => folder.Length > 0)
             .Any(folder => path.StartsWith(folder.TrimEnd('\\') + '\\', StringComparison.OrdinalIgnoreCase));
+    }
+
+    /// <summary>
+    /// Puts a copy of this program in Program Files for the service and returns its path, or null if that failed.
+    /// A copy that's already identical is kept; a different one (an older version) is replaced, stopping the service
+    /// first because it holds the file open.
+    /// </summary>
+    private static string? InstallServiceCopy(string exe, ServerLocations locations, StringBuilder log)
+    {
+        var target = Path.Combine(locations.ProgramDirectory, Path.GetFileName(exe));
+        try
+        {
+            if (File.Exists(target) && SameContent(exe, target))
+            {
+                log.AppendLine($"The service uses the copy of this program in {locations.ProgramDirectory}.");
+                return target;
+            }
+
+            var replacing = File.Exists(target);
+            var marker = Path.Combine(locations.ProgramDirectory, ServiceCopyMarker);
+            // A program someone installed here by hand is updated for the service, but stays theirs: only a copy
+            // this method created is marked for removal when server mode is switched off.
+            var ours = !replacing || File.Exists(marker);
+            if (replacing)
+                StopService(locations, log);
+            var folder = new DirectoryInfo(locations.ProgramDirectory);
+            folder.Create();
+            SecureProgramFolder(folder);
+            // Copy beside the target, then swap, so a failed copy never leaves a half-written program for the service.
+            var partial = target + ".new";
+            File.Copy(exe, partial, overwrite: true);
+            MoveWhenReleased(partial, target);
+            if (ours)
+            {
+                File.WriteAllText(marker,
+                    $"This copy of {Path.GetFileName(exe)} runs the {locations.ServiceDisplayName} service. Turning server mode off removes it.\r\n");
+            }
+            log.AppendLine(replacing
+                ? $"Updated the service's copy of this program in {locations.ProgramDirectory}."
+                : $"Copied this program to {locations.ProgramDirectory} for the service, because it's running from {Path.GetDirectoryName(exe)}, "
+                    + "a folder standard users can change.");
+            return target;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            log.AppendLine($"Couldn't copy this program to {locations.ProgramDirectory} for the service: {ex.Message} Nothing else was changed.");
+            return null;
+        }
+    }
+
+    /// <summary>Removes the copy <see cref="InstallServiceCopy"/> made, but never a copy someone put there and runs.</summary>
+    private static void RemoveServiceCopy(string exe, ServerLocations locations, StringBuilder log)
+    {
+        var marker = Path.Combine(locations.ProgramDirectory, ServiceCopyMarker);
+        var target = Path.Combine(locations.ProgramDirectory, Path.GetFileName(exe));
+        if (!File.Exists(marker) || string.Equals(Path.GetFullPath(exe), Path.GetFullPath(target), StringComparison.OrdinalIgnoreCase))
+            return;
+        try
+        {
+            File.Delete(target);
+            File.Delete(marker);
+            if (!Directory.EnumerateFileSystemEntries(locations.ProgramDirectory).Any())
+                Directory.Delete(locations.ProgramDirectory);
+            log.AppendLine($"Removed the service's copy of this program from {locations.ProgramDirectory}.");
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            log.AppendLine($"The service's copy in {locations.ProgramDirectory} couldn't be removed: {ex.Message}");
+        }
+    }
+
+    private const string ServiceCopyMarker = "service-copy.txt";
+
+    // A stopped service's process can hold its program file open for a moment after Windows reports it stopped.
+    private static void MoveWhenReleased(string source, string target)
+    {
+        for (var attempt = 1; ; attempt++)
+        {
+            try
+            {
+                File.Move(source, target, overwrite: true);
+                return;
+            }
+            catch (IOException) when (attempt < 20)
+            {
+                Thread.Sleep(250);
+            }
+        }
+    }
+
+    private static bool SameContent(string a, string b)
+    {
+        if (new FileInfo(a).Length != new FileInfo(b).Length)
+            return false;
+        using var first = File.OpenRead(a);
+        using var second = File.OpenRead(b);
+        return System.Security.Cryptography.SHA256.HashData(first).AsSpan().SequenceEqual(System.Security.Cryptography.SHA256.HashData(second));
+    }
+
+    /// <summary>Only administrators and the system may change the program folder; everyone else may only run it.</summary>
+    private static void SecureProgramFolder(DirectoryInfo folder) => folder.SetAccessControl(AdministratorsOnly());
+
+    /// <summary>Administrators and the system have full control; users and the service may read and run.</summary>
+    private static DirectorySecurity AdministratorsOnly()
+    {
+        const InheritanceFlags inherit = InheritanceFlags.ContainerInherit | InheritanceFlags.ObjectInherit;
+        var security = new DirectorySecurity();
+        security.SetOwner(Administrators);
+        security.SetAccessRuleProtection(isProtected: true, preserveInheritance: false);
+        security.AddAccessRule(new FileSystemAccessRule(LocalSystem, FileSystemRights.FullControl, inherit, PropagationFlags.None, AccessControlType.Allow));
+        security.AddAccessRule(new FileSystemAccessRule(Administrators, FileSystemRights.FullControl, inherit, PropagationFlags.None, AccessControlType.Allow));
+        security.AddAccessRule(new FileSystemAccessRule(Users, FileSystemRights.ReadAndExecute, inherit, PropagationFlags.None, AccessControlType.Allow));
+        security.AddAccessRule(new FileSystemAccessRule(LocalService, FileSystemRights.ReadAndExecute, inherit, PropagationFlags.None, AccessControlType.Allow));
+        return security;
     }
 
     /// <summary>
@@ -69,17 +195,9 @@ internal static class ServerSetup
             }
         }
         root.Create();
+        root.SetAccessControl(AdministratorsOnly());
 
         const InheritanceFlags inherit = InheritanceFlags.ContainerInherit | InheritanceFlags.ObjectInherit;
-        var security = new DirectorySecurity();
-        security.SetOwner(Administrators);
-        security.SetAccessRuleProtection(isProtected: true, preserveInheritance: false);
-        security.AddAccessRule(new FileSystemAccessRule(LocalSystem, FileSystemRights.FullControl, inherit, PropagationFlags.None, AccessControlType.Allow));
-        security.AddAccessRule(new FileSystemAccessRule(Administrators, FileSystemRights.FullControl, inherit, PropagationFlags.None, AccessControlType.Allow));
-        security.AddAccessRule(new FileSystemAccessRule(Users, FileSystemRights.ReadAndExecute, inherit, PropagationFlags.None, AccessControlType.Allow));
-        security.AddAccessRule(new FileSystemAccessRule(LocalService, FileSystemRights.ReadAndExecute, inherit, PropagationFlags.None, AccessControlType.Allow));
-        root.SetAccessControl(security);
-
         var state = new DirectoryInfo(locations.StateDirectory);
         state.Create();
         var stateSecurity = state.GetAccessControl();
@@ -167,24 +285,29 @@ internal static class ServerSetup
         var name = locations.ServiceName;
         if (!ServiceExists(name))
             return true;
-        using (var service = new ServiceController(name))
-        {
-            try
-            {
-                if (service.Status != ServiceControllerStatus.Stopped)
-                {
-                    service.Stop();
-                    service.WaitForStatus(ServiceControllerStatus.Stopped, ServiceTimeout);
-                }
-            }
-            catch (Exception ex) when (ex is InvalidOperationException or System.ServiceProcess.TimeoutException or System.ComponentModel.Win32Exception)
-            {
-                log.AppendLine($"Stopping the {locations.ServiceDisplayName} service failed: {ex.Message}");
-            }
-        }
+        StopService(locations, log);
         var ok = Run("sc.exe", ["delete", name], log) == 0;
         log.AppendLine(ok ? $"{locations.ServiceDisplayName} service removed." : $"The {locations.ServiceDisplayName} service couldn't be removed.");
         return ok;
+    }
+
+    private static void StopService(ServerLocations locations, StringBuilder log)
+    {
+        if (!ServiceExists(locations.ServiceName))
+            return;
+        using var service = new ServiceController(locations.ServiceName);
+        try
+        {
+            if (service.Status != ServiceControllerStatus.Stopped)
+            {
+                service.Stop();
+                service.WaitForStatus(ServiceControllerStatus.Stopped, ServiceTimeout);
+            }
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or System.ServiceProcess.TimeoutException or System.ComponentModel.Win32Exception)
+        {
+            log.AppendLine($"Stopping the {locations.ServiceDisplayName} service failed: {ex.Message}");
+        }
     }
 
     private static bool ServiceExists(string name) =>

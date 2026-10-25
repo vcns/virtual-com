@@ -71,7 +71,8 @@ internal sealed class ServerSettingsPanel : UserControl
             Margin = new Padding(0, 0, 0, 6),
             Text = "Share this PC's COM ports, such as USB-attached devices, on the network. Each row listens on one TCP port and passes "
                 + "bytes to and from one COM port, one client at a time, like a serial device server. A Windows service does the work, so "
-                + "the ports stay available when nobody is logged in. Saving changes here asks for administrator approval.",
+                + "the ports stay available when nobody is logged in. Saving changes here asks for administrator approval, and copies "
+                + $"this program to {_locations.ProgramDirectory} for the service if it's running from somewhere else.",
         };
 
         _enabled.Text = "&Share COM ports on the network (server mode)";

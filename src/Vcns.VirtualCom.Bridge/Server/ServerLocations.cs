@@ -17,6 +17,12 @@ internal sealed class ServerLocations(BridgeEdition edition, string? root = null
 
     public string LogFilePrefix => edition.LogFilePrefix + "-server";
 
+    /// <summary>
+    /// %ProgramFiles%\&lt;product name&gt;: where the service's copy of the program goes when it's run from a folder
+    /// standard users can change.
+    /// </summary>
+    public string ProgramDirectory { get; } = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), edition.ProductName);
+
     public string ServiceName => edition.DataFolderName + "Server";
 
     public string ServiceDisplayName => $"{edition.ProductName} server";

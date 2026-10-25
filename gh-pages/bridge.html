@@ -360,12 +360,12 @@
           <p class='section-label'>Server mode</p>
           <h2>Sharing a COM port.</h2>
           <ol class='steps'>
-            <li>Put the program in <code>C:\Program Files\VCNS Virtual COM Bridge</code> and run it from there. Server mode runs it as a Windows service, so it refuses to run from a folder that standard users can change.</li>
+            <li>Run the program from any folder. Server mode runs it as a Windows service, which must use a program file standard users can't replace, so if it isn't already in Program Files, saving copies it to <code>C:\Program Files\VCNS Virtual COM Bridge</code> for the service.</li>
             <li>Plug in the device and check its COM port in Device Manager.</li>
             <li>Open <strong>Settings → GUI…</strong>, choose the <strong>Server ports</strong> tab and tick <strong>Share COM ports on the network</strong>.</li>
             <li>Choose <strong>Add</strong>. The row picks the next COM port that's present, a TCP port (the base plus the COM number), this PC's main network address, and that address's subnet as the allowed clients.</li>
             <li>Adjust <strong>Allowed Clients</strong> to the PCs or ranges that should connect, and set <strong>Baud</strong>, <strong>Format</strong> and <strong>Flow Control</strong> to match the device.</li>
-            <li>Choose <strong>Save</strong> and approve the Windows prompt. The bridge installs and starts its service and adds the firewall rules, then shows <strong>"Server settings applied"</strong>.</li>
+            <li>Choose <strong>Save</strong> and approve the Windows prompt. The bridge copies itself to Program Files if needed, installs and starts its service, and adds the firewall rules, then shows <strong>"Server settings applied"</strong> with what it did.</li>
             <li>Check the row's <strong>Status</strong> says <strong>Listening</strong>. From a client PC, <code>Test-NetConnection &lt;this PC&gt; -Port 4003</code> should succeed.</li>
           </ol>
           <figure class='window-mock' aria-label='Mock-up of the Server ports tab'>
@@ -428,10 +428,11 @@
           <div class='definition-grid'>
             <div><dt>Settings</dt><dd><code>%ProgramData%\VcnsVirtualComBridge\server.json</code>. Only administrators can change it; everyone can read it. The service ignores the file if anyone other than administrators owns it.</dd></div>
             <div><dt>Service</dt><dd><em>VCNS Virtual COM Bridge server</em> (<code>VcnsVirtualComBridgeServer</code>). Runs the same program with <code>--service</code> as the low-privilege LocalService account, starts automatically, and restarts after a failure.</dd></div>
+            <div><dt>Program copy</dt><dd>Only if you run the bridge from outside Program Files: a copy in <code>C:\Program Files\VCNS Virtual COM Bridge</code>, next to a <code>service-copy.txt</code> note, for the service to run. Saving from a different version updates it. A copy you put there yourself is updated but never removed.</dd></div>
             <div><dt>Service files</dt><dd><code>%ProgramData%\VcnsVirtualComBridge\service</code>: the server log (<code>logs\vcom-bridge-server-YYYYMMDD.log</code>, 30 days) and <code>status.json</code>. The only folder the service can write to.</dd></div>
             <div><dt>Firewall</dt><dd>Inbound rules named <em>VCNS Virtual COM Bridge server</em>, one per shared port, limited to its TCP port, listen address, allowed clients and this program.</dd></div>
           </div>
-          <p>Unticking <strong>Share COM ports on the network</strong> and saving removes the service and the firewall rules. The settings file stays, so ticking it again restores your rows.</p>
+          <p>Unticking <strong>Share COM ports on the network</strong> and saving removes the service, the firewall rules and the program copy it made. The settings file stays, so ticking it again restores your rows.</p>
         </section>
 
         <section id='monitoring' class='section'>
