@@ -59,6 +59,7 @@
             <li><a href='#setup'>Setting up</a></li>
             <li><a href='#tray'>Tray menu</a></li>
             <li><a href='#settings'>Settings reference</a></li>
+            <li><a href='#organising'>Organising many customers</a></li>
             <li><a href='#single-session'>Single-session safety</a></li>
             <li><a href='#messages'>Connection messages</a></li>
             <li><a href='#files'>Files and logs</a></li>
@@ -140,7 +141,7 @@
           <ol class='steps'>
             <li>Copy <code>vcombridge.exe</code> to a folder such as <code>C:\Program Files\VCNS Virtual COM Bridge</code> and run it. A connector icon appears in the notification area; if it's hidden, click the <strong>^</strong> arrow by the clock.</li>
             <li>Right-click the icon and choose <strong>Settings → GUI…</strong>, or double-click the icon. The line near the top should mention <strong>VCNS virtual COM (included)</strong>.</li>
-            <li>Choose <strong>Add</strong>. A row appears with a COM port already chosen. Type the device's address in <strong>Target Server</strong> and its TCP port in <strong>Target Port</strong>.</li>
+            <li>Choose <strong>Add</strong>. A row appears with a COM port already chosen. Optionally fill in <strong>Customer</strong>, <strong>Label</strong> and <strong>Device</strong> so you can tell it apart later. Type the device's address in <strong>Target Server</strong> and its TCP port in <strong>Target Port</strong>.</li>
             <li>Choose <strong>Save</strong>. When asked <strong>"Create virtual port COM9?"</strong>, choose <strong>Create</strong> and approve the Windows prompt. The first time, this also installs the driver.</li>
             <li>When the row says <strong>Virtual port ready</strong>, right-click the icon and choose <strong>Start → COM9 → address:port</strong>. The icon turns green when the device has accepted the session.</li>
             <li>Open COM9 in your serial application and work as usual. Choose <strong>COM9 — Connected → Disconnect</strong> when you've finished.</li>
@@ -151,12 +152,13 @@
               <p>Each row maps one local virtual COM port, which your serial application opens, to one device endpoint. Nothing connects until you start a profile from the tray menu (Start → COMx).</p>
               <p class='muted'>Virtual port drivers: VCNS virtual COM (included), 2 port(s).</p>
               <table>
-                <thead><tr><th>Enabled</th><th>Target Server</th><th>Target Port</th><th>Local COM Port</th><th>Virtual Port</th><th>Proxy-side Port</th></tr></thead>
+                <thead><tr><th>Enabled</th><th>Customer</th><th>Label</th><th>Target Server</th><th>Target Port</th><th>Local COM Port</th><th>Device</th><th>Virtual Port</th></tr></thead>
                 <tbody>
-                  <tr><td>☑</td><td>192.168.20.15</td><td>4001</td><td>COM9 ▾</td><td class='muted'>Virtual port ready (VCNS virtual COM driver)</td><td></td></tr>
-                  <tr><td>☑</td><td>plc-line2.example.net</td><td>4001</td><td>COM10 ▾</td><td class='muted'>Virtual port ready (VCNS virtual COM driver)</td><td></td></tr>
+                  <tr><td>☑</td><td>Northfield Foods</td><td>Line 2 PLC</td><td>192.168.20.15</td><td>4001</td><td>COM9 ▾</td><td>PLC, model X</td><td class='muted'>Virtual port ready (VCNS virtual COM driver)</td></tr>
+                  <tr><td>☑</td><td>Northfield Foods</td><td>Line 3 PLC</td><td>plc-line3.example.net</td><td>4001</td><td>COM10 ▾</td><td>PLC, model X</td><td class='muted'>Virtual port ready (VCNS virtual COM driver)</td></tr>
                 </tbody>
               </table>
+              <p class='muted'>Filter: [ northfield ] · Showing 2 of 14 · Notes and Proxy-side Port columns further right</p>
               <div class='buttons'><span>Add</span><span>Remove</span><span>Create missing virtual ports…</span></div>
               <p class='muted'>Connection options: connect timeout, release interval, in-use detection window, hex logging · <span>Save</span> <span>Close</span></p>
             </div>
@@ -173,8 +175,8 @@
               <tbody>
                 <tr><td><strong>Settings → GUI…</strong></td><td>Opens the Settings window.</td></tr>
                 <tr><td><strong>Settings → Open log file / log folder / configuration folder</strong></td><td>Opens today's log, the log folder, or the folder holding <code>config.json</code>.</td></tr>
-                <tr><td><strong>Start → COMn → address:port</strong></td><td>Starts that profile. Only enabled profiles are listed, each with its state: Stopped, Starting…, Connected, or the last outcome, such as "Last attempt: in use". Hover over a failed one to see why.</td></tr>
-                <tr><td><strong>COMn — state</strong></td><td>One entry per active connection, with <strong>Disconnect</strong> (or <strong>Cancel</strong> while connecting) and live details: the target, status, the port settings your application chose, how long it's been connected, and bytes each way.</td></tr>
+                <tr><td><strong>Start → Customer → COMn · Label → address:port</strong></td><td>Starts that profile. Profiles with a customer are grouped in a submenu per customer; others are listed after the groups. Only enabled profiles appear, each with its state: Stopped, Starting…, Connected, or the last outcome, such as "Last attempt: in use". Hover over one to see its device and notes, and why it last failed.</td></tr>
+                <tr><td><strong>COMn · Label — state</strong></td><td>One entry per active connection, with <strong>Disconnect</strong> (or <strong>Cancel</strong> while connecting) and live details: customer, device and notes, the target, status, the port settings your application chose, how long it's been connected, and bytes each way.</td></tr>
                 <tr><td><strong>Server</strong></td><td>Shown when server mode is on or its service is installed: the service's state, each shared port's status and latest event, <strong>Server settings…</strong> and <strong>Open server log folder</strong>.</td></tr>
                 <tr><td><strong>Exit</strong></td><td>Closes every connection cleanly, releases the ports and quits. If Settings has unsaved changes, you're asked first. Shared ports keep working: the service doesn't depend on the tray app.</td></tr>
               </tbody>
@@ -202,14 +204,27 @@
               <thead><tr><th scope='col'>Column</th><th scope='col'>Meaning</th></tr></thead>
               <tbody>
                 <tr><td><strong>Enabled</strong></td><td>Whether the profile appears under <strong>Start</strong>. Disabled profiles stay saved.</td></tr>
+                <tr><td><strong>Customer</strong></td><td>Optional. Who or where the device belongs to, e.g. "Acme Ltd, Leeds". The tray menu groups profiles by it.</td></tr>
+                <tr><td><strong>Label</strong></td><td>Optional. What the port is for, e.g. "Main hall LED wall". Shown with the COM port in menus, notifications and logs.</td></tr>
                 <tr><td><strong>Target Server</strong></td><td>The device's IP address or host name.</td></tr>
                 <tr><td><strong>Target Port</strong></td><td>The device's TCP port, 1–65535.</td></tr>
                 <tr><td><strong>Local COM Port</strong></td><td>The port your application opens. The list offers existing virtual ports and the next free numbers.</td></tr>
+                <tr><td><strong>Device</strong></td><td>Optional. The make and model. Typing offers models already used, and the edition's own suggestions.</td></tr>
                 <tr><td><strong>Virtual Port</strong></td><td>Read-only status: ready, not created yet, created but not running (a signature problem, Device Manager Code 52), or not available because another device owns the number.</td></tr>
+                <tr><td><strong>Notes</strong></td><td>Optional, up to 1,000 characters on one line: the monitoring host to pause, a contact, anything useful. Hover over a cut-off note to read it all.</td></tr>
                 <tr><td><strong>Proxy-side Port</strong></td><td>Leave blank. Only for another virtual serial driver's port pair: enter the port at the other end of that pair.</td></tr>
               </tbody>
             </table>
           </div>
+          <h3 id='organising'>Organising many customers</h3>
+          <ul class='bullets'>
+            <li><strong>Filter</strong> above the grid shows only rows containing what you type, in any of customer, label, device, address, COM port or notes, with a count such as "Showing 3 of 42".</li>
+            <li>Click the <strong>Customer</strong>, <strong>Label</strong>, <strong>Target Server</strong>, <strong>Local COM Port</strong> or <strong>Device</strong> heading to sort by it.</li>
+            <li><strong>Add</strong> copies the selected row's customer, so adding several ports for one customer is quick. Customer and Device suggest what you've typed before.</li>
+            <li>Customer, label, device and notes can be changed while a profile is connected; saving doesn't disconnect it.</li>
+          </ul>
+          <h3 id='device-manager-names'>Names in Device Manager</h3>
+          <p>A virtual port takes its name from its customer and label, so Device Manager and programs that list port names show, for example, <strong>Acme Ltd, Leeds – Main hall LED wall (COM9)</strong> instead of <em>VCNS Virtual COM Port (COM9)</em>. New ports are named as they're created. When you change the customer or label of an existing port, saving offers to update its name, which needs administrator approval. Clearing both restores the standard name. A driver update can also restore the standard name; creating a port reapplies every port's name.</p>
           <h3>Connection options</h3>
           <div class='table-wrap'>
             <table>
@@ -377,6 +392,7 @@
               <tbody>
                 <tr><td><strong>Enabled</strong></td><td>Whether this port is shared. Disabled rows stay saved.</td></tr>
                 <tr><td><strong>COM Port</strong></td><td>The real COM port to share. The list shows ports present now; virtual ports can't be shared.</td></tr>
+                <tr><td><strong>Label</strong></td><td>Optional. What's attached, e.g. "Acme Leeds – MCTRL300 #1". Shown in the status, the tray menu, the server log and the firewall rule's description. Changing it doesn't disconnect anyone.</td></tr>
                 <tr><td><strong>TCP Port</strong></td><td>The port clients connect to. Suggested as the edition's base plus the COM number (4000 in the generic edition, so COM3 on 4003), skipping ports other programs use or Windows reserves. Editing it keeps your number.</td></tr>
                 <tr><td><strong>Listen On</strong></td><td>The local address to accept connections on: one interface (recommended) or all interfaces.</td></tr>
                 <tr><td><strong>Allowed Clients</strong></td><td>Addresses or CIDR ranges, separated by commas, e.g. <code>10.20.0.31, 10.30.0.0/24</code>. <code>0.0.0.0/0</code> allows any IPv4 client. An enabled row can't be saved with none.</td></tr>
@@ -461,6 +477,7 @@ internal static class Program
                 <tr><td><code>OtherClientExample</code></td><td>Named in "in use" messages</td><td>(none)</td><td>Zabbix polling</td></tr>
                 <tr><td><code>ConnectReminder</code></td><td>Optional reminder before each connection and after it ends, with a Settings check box to turn it off. In its text, <code>{endpoint}</code> and <code>{port}</code> are filled in.</td><td>(none)</td><td>Pause Zabbix polling first</td></tr>
                 <tr><td><code>ServerPortBase</code></td><td>Server mode suggests this plus the COM number as each shared port's TCP port</td><td>4000 (COM3 on 4003)</td><td>5200 (COM3 on 5203)</td></tr>
+                <tr><td><code>DeviceSuggestions</code></td><td>Makes and models offered while typing in the Device column</td><td>(none)</td><td>NovaPro UHD Jr, MCTRL300</td></tr>
               </tbody>
             </table>
           </div>

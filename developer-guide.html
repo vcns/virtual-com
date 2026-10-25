@@ -147,6 +147,7 @@ private static int Main(string[] args) => BridgeApp.Run(MyEdition.Instance, args
                 <tr><td><code>bool InstallDriver(string infPath)</code></td><td>Yes</td><td>Adds the signed driver package to the driver store and updates existing ports to it. Returns true if Windows wants a restart.</td></tr>
                 <tr><td><code>VirtualComPort Create(string portName)</code></td><td>Yes</td><td>Creates a port called <code>portName</code> (for example <code>"COM20"</code>), claims the number, and installs the driver on it.</td></tr>
                 <tr><td><code>void Remove(string portNameOrInstanceId)</code></td><td>Yes</td><td>Removes a port and releases its number.</td></tr>
+                <tr><td><code>void SetDisplayName(string portName, string? label)</code></td><td>Yes</td><td>Sets the name Device Manager shows, e.g. <code>"Main hall (COM9)"</code> for label <code>"Main hall"</code>. Null or blank restores <em>VCNS Virtual COM Port (COM9)</em>. A driver update can restore the standard name.</td></tr>
                 <tr><td><code>IReadOnlyList&lt;VirtualComPort&gt; List()</code></td><td>No</td><td>Every virtual port, including ports whose driver isn't running.</td></tr>
                 <tr><td><code>string? FindHostPath(string portName)</code></td><td>No</td><td>The device path of the port's host end, or null if it isn't running.</td></tr>
                 <tr><td><code>const string HardwareId</code></td><td></td><td><code>Root\VcnsVirtualCom</code></td></tr>
