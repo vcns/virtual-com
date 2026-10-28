@@ -12,7 +12,13 @@ const string Usage = """
       vcomctl remove COMn                Remove a port (admin)
       vcomctl label COMn ["text"]        Name the port in Device Manager, e.g. "Main hall (COM9)";
                                          no text restores the standard name (admin)
+
+    Exit codes: 0 done, 1 error, 2 port created but not running,
+                3010 driver installed but Windows needs a restart before existing ports use it
     """;
+
+// ERROR_SUCCESS_REBOOT_REQUIRED, which installers and deployment tools treat as success pending a restart.
+const int RestartNeeded = 3010;
 
 try
 {
@@ -29,7 +35,7 @@ try
         case ["install-driver", var inf]:
             var reboot = VirtualComDevices.InstallDriver(inf);
             Console.WriteLine(reboot ? "Driver package installed; a restart is needed." : "Driver package installed.");
-            return 0;
+            return reboot ? RestartNeeded : 0;
 
         case ["create", var name]:
             var created = VirtualComDevices.Create(name);

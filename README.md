@@ -66,6 +66,8 @@ vcomctl remove COM20                            (administrator)
 vcomctl label COM20 "Workshop test rig"         (administrator; no text restores the standard name)
 ```
 
+Exit codes: 0 done, 1 error, 2 port created but not running, and 3010 (the standard "restart required" code) when `install-driver` succeeded but existing ports need a restart to use the new driver.
+
 `create` sets the COM number you choose and claims it in Windows' COM name database. `label` sets the name Device Manager shows, e.g. "Workshop test rig (COM20)" (`VirtualComDevices.SetDisplayName` in the library).
 
 ## Bridge applications
