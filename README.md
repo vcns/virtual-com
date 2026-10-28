@@ -154,7 +154,7 @@ build\Sign-Package.ps1 -Thumbprint <code-signing certificate thumbprint>
 
 This signs the DLL, regenerates the catalog to cover the signed DLL, and signs the catalog.
 
-Release builds will be signed by **VCNS Tech Ltd**. Until then, development uses a self-signed certificate.
+Release builds will be signed by **VCNS Tech Ltd**. Until then, development uses a self-signed certificate. Microsoft signing, which ARM64, S mode and Windows Update need, is planned in stages: see [Microsoft signing](https://vcns.github.io/virtual-com/microsoft-signing.html). `build\Test-Package.ps1` checks the package against Microsoft's pre-signing rules, and CI runs it on every build.
 
 ### Development install (test certificate)
 

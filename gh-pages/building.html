@@ -41,6 +41,7 @@
             <li><a href='developer-guide.html'>Developer guide</a></li>
             <li><a href='reference.html'>Serial reference</a></li>
             <li><a href='building.html' aria-current='page'>Build &amp; sign</a></li>
+            <li><a href='microsoft-signing.html'>Microsoft signing</a></li>
             <li><a href='faq.html'>FAQ</a></li>
             <li><a href='https://github.com/vcns/virtual-com'>Repository</a></li>
           </ul>
@@ -118,7 +119,7 @@ dotnet build VirtualCom.slnx -c Release</code></pre>
         <section id='signing' class='section'>
           <p class='section-label'>Signing</p>
           <h2>Sign the package.</h2>
-          <p>Windows installs a driver package only if its catalog is signed by a certificate it trusts. A user-mode driver doesn't need Microsoft's signature: any code-signing certificate that chains to a trusted root will do, with an optional time stamp so the signature outlives the certificate.</p>
+          <p>Windows installs a driver package only if its catalog is signed by a certificate it trusts. A user-mode driver doesn't need Microsoft's signature: any code-signing certificate that chains to a trusted root will do, with an optional time stamp so the signature outlives the certificate. That covers 64-bit Windows 10 and 11. ARM64, S mode and Windows Update need Microsoft's signature, which is planned in <a href='microsoft-signing.html'>Microsoft signing</a>.</p>
 <pre><code>build\Sign-Package.ps1 -Thumbprint &lt;certificate thumbprint&gt;</code></pre>
           <p>The script signs the DLL, regenerates the catalog so it covers the signed DLL, and signs the catalog. All signatures use SHA-256 and an RFC 3161 time stamp; pass <code>-TimestampUrl ''</code> to skip the time stamp.</p>
           <div class='card-grid'>
@@ -132,7 +133,7 @@ dotnet build VirtualCom.slnx -c Release</code></pre>
             </article>
             <article class='card'>
               <h3>Releases</h3>
-              <p>Official releases will be signed by VCNS Tech Ltd with a publicly trusted certificate, so that Windows shows a verified publisher and no certificate step is needed.</p>
+              <p>Official releases will be signed by VCNS Tech Ltd with a publicly trusted certificate, so that Windows shows a verified publisher and no certificate step is needed. For Microsoft's own signature, see <a href='microsoft-signing.html'>Microsoft signing</a>.</p>
             </article>
             <article class='card'>
               <h3>Your own builds</h3>

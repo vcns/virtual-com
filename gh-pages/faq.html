@@ -40,6 +40,7 @@
             <li><a href='developer-guide.html'>Developer guide</a></li>
             <li><a href='reference.html'>Serial reference</a></li>
             <li><a href='building.html'>Build &amp; sign</a></li>
+            <li><a href='microsoft-signing.html'>Microsoft signing</a></li>
             <li><a href='faq.html' aria-current='page'>FAQ</a></li>
             <li><a href='https://github.com/vcns/virtual-com'>Repository</a></li>
           </ul>
@@ -76,6 +77,10 @@
             <article class='faq-item'>
               <h3>Which versions of Windows does it support?</h3>
               <p>It's designed for Windows 10 version 1809 and later, and Windows 11, on 64-bit x86 PCs. It has been tested on Windows 11 25H2. ARM64 and Windows in S mode aren't supported, because those require Microsoft-signed (WHQL) driver packages.</p>
+            </article>
+            <article class='faq-item'>
+              <h3>Will it be WHQL-certified, or come through Windows Update?</h3>
+              <p>That's the plan. Windows Update requires certification through Microsoft's Hardware Lab Kit. The first steps are free: running the kit's tests ourselves, and asking Microsoft how a software-only device like a virtual COM port is certified. A certificate and registration with Microsoft follow once the tests pass. The package already passes Microsoft's pre-signing checks. See <a href='microsoft-signing.html'>Microsoft signing</a> for the steps and where they stand.</p>
             </article>
             <article class='faq-item'>
               <h3>Is it ready for production?</h3>
