@@ -267,12 +267,17 @@ internal sealed class PortServer : IAsyncDisposable
                     Log.Warn($"{Name}: closing {Port.ComPort} failed: {ex.Message}");
                 }
             }
-            await SocketTuning.CloseGracefullyAsync(client);
 
+            // The COM port is closed, so the session is released before this connection finishes closing: the client
+            // only sees the close after that, and may reconnect at once (after "device not present", say) without
+            // being turned away by its own previous connection.
             DateTimeOffset? since;
+            long toDevice, fromDevice;
             lock (_gate)
             {
                 since = _clientSince;
+                toDevice = Interlocked.Read(ref _bytesToDevice);
+                fromDevice = Interlocked.Read(ref _bytesFromDevice);
                 _sessionActive = false;
                 _client = null;
                 _clientEndpoint = null;
@@ -281,9 +286,10 @@ internal sealed class PortServer : IAsyncDisposable
                     _state = PortServerState.Listening;
             }
             var duration = since is { } s ? $" after {DateTimeOffset.Now - s:hh\\:mm\\:ss}" : "";
-            Log.Info($"{Name}: {remote} disconnected{duration} ({reason}). Bytes to {Port.ComPort}: {Interlocked.Read(ref _bytesToDevice)}, "
-                + $"from it: {Interlocked.Read(ref _bytesFromDevice)}.");
+            Log.Info($"{Name}: {remote} disconnected{duration} ({reason}). Bytes to {Port.ComPort}: {toDevice}, from it: {fromDevice}.");
             Note($"{remote.Address} disconnected ({reason})");
+
+            await SocketTuning.CloseGracefullyAsync(client);
         }
     }
 
