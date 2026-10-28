@@ -20,6 +20,22 @@ runs:
 
     - uses: microsoft/setup-msbuild@v2
 
+    # The driver is built with the v143 toolset (14.44) and Spectre mitigation. The windows-2025 image has Visual
+    # Studio 2026, which includes that toolset but only v145's Spectre-mitigated libraries.
+    - name: Add the v143 Spectre-mitigated libraries if missing
+      shell: pwsh
+      run: |
+        $vs = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -products * -requires Microsoft.Component.MSBuild -property installationPath
+        if (Test-Path "$vs\VC\Tools\MSVC\14.44.*\lib\spectre\x64") {
+          Write-Host 'Already installed.'
+        } else {
+          $installer = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vs_installer.exe"
+          $process = Start-Process $installer -Wait -PassThru -ArgumentList 'modify', '--installPath', "`"$vs`"",
+            '--add', 'Microsoft.VisualStudio.Component.VC.14.44.17.14.x86.x64.Spectre', '--quiet', '--norestart', '--nocache'
+          if ($process.ExitCode -notin 0, 3010) { throw "The Visual Studio installer failed (exit code $($process.ExitCode))." }
+          if (-not (Test-Path "$vs\VC\Tools\MSVC\14.44.*\lib\spectre\x64")) { throw 'The v143 Spectre-mitigated libraries still aren''t installed.' }
+        }
+
     - name: Cache the Windows SDK and WDK
       uses: actions/cache@v4
       with:
