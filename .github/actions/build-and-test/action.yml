@@ -1,0 +1,125 @@
+name: Build and test
+description: >-
+  Builds and test-signs the driver package, builds the .NET projects with it embedded, installs the driver on COM20
+  and runs both test suites. If anything fails, uploads the install logs.
+
+inputs:
+  signing-pfx:
+    description: Base64 of a PFX holding the test-signing certificate. Without it, a throwaway certificate is used.
+    default: ''
+  signing-password:
+    description: The PFX's password.
+    default: ''
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: 10.0.x
+
+    - uses: microsoft/setup-msbuild@v2
+
+    - name: Cache the Windows SDK and WDK
+      uses: actions/cache@v4
+      with:
+        path: packages
+        key: kits-${{ hashFiles('packages.config') }}
+
+    - name: Cache .NET packages
+      uses: actions/cache@v4
+      with:
+        path: ~/.nuget/packages
+        key: nuget-${{ hashFiles('src/**/*.csproj', 'src/**/*.pubxml', 'tests/**/*.csproj') }}
+        restore-keys: nuget-
+
+    - name: Restore Windows SDK and WDK
+      shell: pwsh
+      run: nuget restore packages.config -PackagesDirectory packages
+
+    - name: Build driver package
+      shell: pwsh
+      run: msbuild driver\vcnsvcom.vcxproj -p:Configuration=Release -p:Platform=x64 -nologo -v:minimal
+
+    # A change that would stop Microsoft signing the package fails here, not at submission time.
+    - name: Check the package against Microsoft's signing rules
+      shell: pwsh
+      run: build\Test-Package.ps1
+
+    # Signed before the .NET build, because the bridge embeds whatever package is in out\Release\package. Signatures
+    # with a supplied certificate are time-stamped, so test builds outlive it. The throwaway certificate is for pull
+    # requests, whose builds aren't uploaded, so it skips the time stamp.
+    - name: Test-sign the driver package
+      shell: pwsh
+      env:
+        SIGNING_PFX: ${{ inputs.signing-pfx }}
+        SIGNING_PASSWORD: ${{ inputs.signing-password }}
+      run: |
+        if ($env:SIGNING_PFX) {
+          if (-not $env:SIGNING_PASSWORD) { throw 'signing-pfx was given without signing-password.' }
+          $pfx = Join-Path $env:RUNNER_TEMP test-signing.pfx
+          try {
+            [IO.File]::WriteAllBytes($pfx, [Convert]::FromBase64String($env:SIGNING_PFX))
+            $password = ConvertTo-SecureString $env:SIGNING_PASSWORD -AsPlainText -Force
+            # A PFX may carry its issuers too; the signing certificate is the one with the key.
+            $cert = Import-PfxCertificate -FilePath $pfx -Password $password -CertStoreLocation Cert:\CurrentUser\My |
+              Where-Object HasPrivateKey | Select-Object -First 1
+          }
+          finally {
+            Remove-Item $pfx -ErrorAction SilentlyContinue
+          }
+          if (-not $cert) { throw 'The PFX holds no certificate with a private key.' }
+          if ($cert.NotAfter -lt (Get-Date).AddDays(60)) {
+            Write-Host "::warning::The test-signing certificate expires on $($cert.NotAfter.ToString('yyyy-MM-dd')). Replace it before then, or builds from main will fail to sign."
+          }
+          $timestamp = 'http://timestamp.digicert.com'
+        } else {
+          if ($env:GITHUB_EVENT_NAME -eq 'push') {
+            Write-Host '::warning::The Development environment has no VCOM_TEST_SIGNING_PFX secret, so this test build is signed with a throwaway certificate.'
+          }
+          $cert = New-SelfSignedCertificate -Type CodeSigningCert -Subject 'CN=VCNS Virtual COM (CI test signing)' `
+            -CertStoreLocation Cert:\CurrentUser\My -KeyExportPolicy NonExportable
+          $timestamp = ''
+        }
+        New-Item -ItemType Directory out\test-signing -Force | Out-Null
+        Export-Certificate -Cert $cert -FilePath out\test-signing\vcom-test-signing.cer | Out-Null
+        build\Sign-Package.ps1 -Thumbprint $cert.Thumbprint -TimestampUrl $timestamp
+
+    - name: Build library, tool and tests
+      shell: pwsh
+      run: dotnet build VirtualCom.slnx -c Release
+
+    # The runner is a throwaway VM, so trusting the test certificate there is harmless.
+    - name: Install the driver and create COM20
+      shell: pwsh
+      run: scripts\Install-TestPort.ps1 -Port COM20
+
+    - name: Run port tests
+      shell: pwsh
+      env:
+        VCOM_TEST_PORT: COM20
+      run: dotnet test tests\Vcns.VirtualCom.Tests -c Release --no-build
+
+    - name: Run bridge tests
+      shell: pwsh
+      env:
+        VCOM_TEST_PORT: COM20
+      run: dotnet test tests\Vcns.VirtualCom.Bridge.Tests -c Release --no-build
+
+    # A failed install or a driver problem in the tests both show up in setupapi.dev.log.
+    - name: Collect setupapi.dev.log
+      if: failure()
+      shell: pwsh
+      run: |
+        New-Item -ItemType Directory out\test-signing -Force | Out-Null
+        Copy-Item "$env:windir\INF\setupapi.dev.log" out\test-signing
+
+    - name: Upload install logs
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: install-logs
+        path: |
+          out/test-signing/*.txt
+          out/test-signing/*.log
+        if-no-files-found: ignore

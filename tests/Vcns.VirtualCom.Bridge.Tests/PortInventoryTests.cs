@@ -165,8 +165,12 @@ public class PortInventoryTests
     [Fact]
     public void Live_registry_can_be_read_without_administrator_rights()
     {
-        var inventory = PortInventory.Capture();
+        var inventory = StandardUser.Run(() => PortInventory.Capture());
         Assert.NotNull(inventory.Pairs);
         Assert.NotEmpty(inventory.SuggestFreePorts([], 1));
+
+        // Unreadable keys are skipped rather than reported, so check that something real was read.
+        if (Environment.GetEnvironmentVariable("VCOM_TEST_PORT") is { Length: > 0 } port)
+            Assert.True(inventory.IsVcnsPort(port) && inventory.IsRunning(port), $"A standard user can't see {port} running.");
     }
 }

@@ -1,0 +1,99 @@
+name: build
+
+# Pull requests always run, so the "Build and test" check always reports; for a change to documentation alone, the
+# Windows job is skipped, which counts as passing. Pushes to main skip documentation-only changes entirely.
+on:
+  push:
+    branches: [main]
+    paths-ignore: ['gh-pages/**', '**.md', LICENSE, NOTICE]
+  pull_request:
+
+permissions:
+  contents: read
+
+# A newer push to a pull request cancels its run in progress. Each run on main is its own group, so every commit there
+# gets its test build.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
+  cancel-in-progress: true
+
+# Both build jobs run the same steps (.github/actions/build-and-test). Pull requests, which may come from forks, get a
+# throwaway certificate and upload only logs, so nobody is asked to trust anything they built. Pushes to main use the
+# Development environment, which only main can use: its certificate signs every test build, so a PC that trusts it
+# once can install later ones too.
+jobs:
+  changes:
+    name: Find what changed
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    outputs:
+      code: ${{ steps.diff.outputs.code }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - id: diff
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          changed=$(git diff --name-only "$BASE" HEAD)
+          if grep -qvE '^gh-pages/|\.md$|^LICENSE$|^NOTICE$' <<< "$changed"; then
+            echo code=true >> "$GITHUB_OUTPUT"
+          else
+            echo code=false >> "$GITHUB_OUTPUT"
+          fi
+
+  pull-request:
+    name: Build and test
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
+    runs-on: windows-2025
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ./.github/actions/build-and-test
+
+  main:
+    name: Build, test and upload test builds
+    if: github.event_name == 'push'
+    runs-on: windows-2025
+    timeout-minutes: 30
+    environment: Development
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ./.github/actions/build-and-test
+        with:
+          signing-pfx: ${{ secrets.VCOM_TEST_SIGNING_PFX }}
+          signing-password: ${{ secrets.VCOM_TEST_SIGNING_PASSWORD }}
+
+      - name: Publish the bridge (test-signed driver embedded)
+        run: dotnet publish src\vcombridge -p:PublishProfile=win-x64
+
+      - name: Publish vcomctl
+        run: dotnet publish src\vcomctl -p:PublishProfile=win-x64
+
+      # Each artefact carries the certificate next to its files, as the user guide expects.
+      - name: Collect the test builds
+        shell: pwsh
+        run: |
+          $driver = New-Item -ItemType Directory out\artifacts\driver-package -Force
+          Copy-Item out\Release\package\vcnsvcom.*, out\publish\vcomctl\vcomctl.exe, out\test-signing\vcom-test-signing.cer $driver
+          $bridge = New-Item -ItemType Directory out\artifacts\vcombridge -Force
+          Copy-Item out\publish\vcombridge\vcombridge.exe, out\test-signing\vcom-test-signing.cer $bridge
+
+      - name: Upload test-signed driver package
+        uses: actions/upload-artifact@v4
+        with:
+          name: driver-package-test-signed
+          path: out/artifacts/driver-package/
+          if-no-files-found: error
+
+      - name: Upload test build of the bridge
+        uses: actions/upload-artifact@v4
+        with:
+          name: vcombridge-test-build
+          path: out/artifacts/vcombridge/
+          if-no-files-found: error
