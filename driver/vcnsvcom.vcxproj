@@ -31,7 +31,7 @@
   <PropertyGroup>
     <OutDir>$(MSBuildThisFileDirectory)..\out\$(Configuration)\</OutDir>
     <IntDir>$(MSBuildThisFileDirectory)..\obj\$(Configuration)\</IntDir>
-    <DriverVersion Condition="'$(DriverVersion)' == ''">0.1.0.0</DriverVersion>
+    <DriverVersion Condition="'$(DriverVersion)' == ''">1.0.0.0</DriverVersion>
     <PackageDir>$(OutDir)package\</PackageDir>
   </PropertyGroup>
   <ItemDefinitionGroup>

@@ -16,11 +16,9 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
-[xml]$props = Get-Content "$root\Directory.Build.props"
-$version = $props.Project.PropertyGroup.WdkNuGetVersion
-$kit = $props.Project.PropertyGroup.WdkSdkVersion
-$signtool = "$root\packages\Microsoft.Windows.SDK.CPP.$version\c\bin\$kit\x64\signtool.exe"
-$inf2cat = "$root\packages\Microsoft.Windows.WDK.x64.$version\c\bin\$kit\x86\Inf2Cat.exe"
+$kit = & "$PSScriptRoot\Kit.ps1"
+$signtool = $kit.SignTool
+$inf2cat = $kit.Inf2Cat
 $package = "$root\out\$Configuration\package"
 
 function Sign([string] $file) {

@@ -1,6 +1,7 @@
 <#
 .SYNOPSIS
-    Development only: removes every VCNS virtual COM port, the driver package and the test-signing certificate.
+    Development only: removes every VCNS virtual COM port, the driver package and the test-signing certificates,
+    including the one CI test builds are signed with.
     Run elevated.
 #>
 $ErrorActionPreference = 'Continue'
@@ -22,7 +23,7 @@ try {
     }
 
     Get-ChildItem Cert:\LocalMachine\Root, Cert:\LocalMachine\TrustedPublisher |
-        Where-Object Subject -eq 'CN=VCNS Virtual COM (test signing)' |
+        Where-Object Subject -like 'CN=VCNS Virtual COM*' |
         ForEach-Object { Remove-Item $_.PSPath; Write-Host "Removed certificate from $($_.PSParentPath)" }
 }
 finally {

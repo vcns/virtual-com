@@ -40,6 +40,7 @@
             <li><a href='developer-guide.html'>Developer guide</a></li>
             <li><a href='reference.html'>Serial reference</a></li>
             <li><a href='building.html'>Build &amp; sign</a></li>
+            <li><a href='microsoft-signing.html'>Microsoft signing</a></li>
             <li><a href='faq.html'>FAQ</a></li>
             <li><a href='https://github.com/vcns/virtual-com'>Repository</a></li>
           </ul>
@@ -86,7 +87,7 @@ Import-Certificate -FilePath .\vcom-test-signing.cer -CertStoreLocation Cert:\Lo
           <h2>Install the driver package.</h2>
           <p>In an administrator prompt, from the folder containing <code>vcomctl.exe</code>:</p>
 <pre><code>vcomctl install-driver C:\path\to\package\vcnsvcom.inf</code></pre>
-          <p>This adds the package to Windows' driver store. You only need to do it once per PC, and again when you upgrade the driver: existing ports switch to the newer version.</p>
+          <p>This adds the package to Windows' driver store. You only need to do it once per PC, and again when you upgrade the driver: existing ports switch to the newer version. If Windows can't switch a port straight away, it needs a restart first; <code>vcomctl</code> says so and exits with code 3010, the standard "restart required" code.</p>
         </section>
 
         <section id='create' class='section'>

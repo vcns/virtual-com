@@ -66,6 +66,8 @@ vcomctl remove COM20                            (administrator)
 vcomctl label COM20 "Workshop test rig"         (administrator; no text restores the standard name)
 ```
 
+Exit codes: 0 done, 1 error, 2 port created but not running, and 3010 (the standard "restart required" code) when `install-driver` succeeded but existing ports need a restart to use the new driver.
+
 `create` sets the COM number you choose and claims it in Windows' COM name database. `label` sets the name Device Manager shows, e.g. "Workshop test rig (COM20)" (`VirtualComDevices.SetDisplayName` in the library).
 
 ## Bridge applications
@@ -152,7 +154,7 @@ build\Sign-Package.ps1 -Thumbprint <code-signing certificate thumbprint>
 
 This signs the DLL, regenerates the catalog to cover the signed DLL, and signs the catalog.
 
-Release builds will be signed by **VCNS Tech Ltd**. Until then, development uses a self-signed certificate.
+Release builds will be signed by **VCNS Tech Ltd**. Until then, development uses a self-signed certificate. Microsoft signing, which ARM64, S mode and Windows Update need, is planned in stages: see [Microsoft signing](https://vcns.github.io/virtual-com/microsoft-signing.html). `build\Test-Package.ps1` checks the package against Microsoft's pre-signing rules, and CI runs it on every build.
 
 ### Development install (test certificate)
 
@@ -173,7 +175,7 @@ dotnet test tests\Vcns.VirtualCom.Tests
 dotnet test tests\Vcns.VirtualCom.Bridge.Tests
 ```
 
-Without `VCOM_TEST_PORT`, the port tests and the bridge's end-to-end tests are skipped. A CI workflow is being added that builds and test-signs the driver, installs it on a GitHub-hosted Windows runner, runs both suites and publishes a test build of the bridge.
+Without `VCOM_TEST_PORT`, the port tests and the bridge's end-to-end tests are skipped. On every pull request and push to `main`, the CI workflow (`.github/workflows/build.yml`) builds and test-signs the driver, installs it on a GitHub-hosted Windows runner and runs both suites. Pushes to `main` also upload test builds of the driver package and the bridge, each with the certificate to trust. The certificate those builds are signed with, and how to set it up, are described under [Continuous integration](https://vcns.github.io/virtual-com/building.html#ci).
 
 ## Limitations
 
