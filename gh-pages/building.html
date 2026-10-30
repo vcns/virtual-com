@@ -56,6 +56,7 @@
             <li><a href='#bridge'>Building the bridge</a></li>
             <li><a href='#testing'>Testing</a></li>
             <li><a href='#ci'>Continuous integration</a></li>
+            <li><a href='#releases'>Releases</a></li>
             <li><a href='#contributing'>Contributing</a></li>
           </ul>
         </div>
@@ -101,15 +102,15 @@ dotnet build VirtualCom.slnx -c Release</code></pre>
               <tbody>
                 <tr><td><code>driver/</code></td><td>The UMDF 2 driver: device setup and COM registration (<code>device.c</code>), the data pump (<code>io.c</code>), serial control codes (<code>comport.c</code>), host control codes (<code>host.c</code>), and the INF template (<code>vcom.inx</code>).</td></tr>
                 <tr><td><code>include/vcom.h</code></td><td>Public interface shared with applications.</td></tr>
-                <tr><td><code>build/</code></td><td><code>Umdf.props</code> (toolchain), <code>Kit.ps1</code> (where the kit's tools are), <code>Sign-Package.ps1</code>, and <code>Test-Package.ps1</code> (Microsoft's pre-signing checks).</td></tr>
+                <tr><td><code>build/</code></td><td><code>Umdf.props</code> (toolchain), <code>Kit.ps1</code> (where the kit's tools are), <code>Sign-Package.ps1</code> and <code>Sign-Files.ps1</code>, <code>Test-Package.ps1</code> (Microsoft's pre-signing checks), and <code>Publish-Programs.ps1</code>.</td></tr>
                 <tr><td><code>src/Vcns.VirtualCom/</code></td><td>.NET library.</td></tr>
                 <tr><td><code>src/vcomctl/</code></td><td>Command-line tool.</td></tr>
                 <tr><td><code>src/Vcns.VirtualCom.Bridge/</code></td><td>The bridge engine, which embeds the signed driver package.</td></tr>
                 <tr><td><code>src/Vcns.VirtualCom.Desktop/</code></td><td>The bridge's tray application and Settings window.</td></tr>
                 <tr><td><code>src/vcombridge/</code></td><td>The generic bridge edition, VCNS Virtual COM Bridge.</td></tr>
                 <tr><td><code>tests/</code></td><td>Driver behaviour tests against an installed port, and the bridge's unit, loopback and end-to-end tests.</td></tr>
-                <tr><td><code>scripts/</code></td><td>Development install and uninstall with a test certificate.</td></tr>
-                <tr><td><code>.github/</code></td><td>The CI workflow (<code>workflows/build.yml</code>) and the build and test steps its jobs share (<code>actions/build-and-test</code>).</td></tr>
+                <tr><td><code>scripts/</code></td><td>Development install and uninstall with a test certificate, and the GitHub setup for CI and releases.</td></tr>
+                <tr><td><code>.github/</code></td><td>The CI and release workflow (<code>workflows/build.yml</code>), the build and test steps its jobs share (<code>actions/build-and-test</code>), and Dependabot's settings.</td></tr>
                 <tr><td><code>gh-pages/</code></td><td>This website.</td></tr>
               </tbody>
             </table>
@@ -133,7 +134,7 @@ dotnet build VirtualCom.slnx -c Release</code></pre>
             </article>
             <article class='card'>
               <h3>Releases</h3>
-              <p>Official releases will be signed by VCNS Tech Ltd with a publicly trusted certificate, so that Windows shows a verified publisher and no certificate step is needed. For Microsoft's own signature, see <a href='microsoft-signing.html'>Microsoft signing</a>.</p>
+              <p>Signed in CI with the Production environment's certificate (see <a href='#releases'>Releases</a>). For now that's the CI test certificate. With a publicly trusted VCNS Tech Ltd certificate, nothing needs importing, but Windows still asks an administrator to confirm the publisher the first time, and standard users can't install. Only Microsoft's signature avoids that prompt; see <a href='microsoft-signing.html'>Microsoft signing</a>.</p>
             </article>
             <article class='card'>
               <h3>Your own builds</h3>
@@ -149,6 +150,7 @@ dotnet build VirtualCom.slnx -c Release</code></pre>
 <pre><code>dotnet build src\vcombridge -p:VirtualComPackageDir=D:\signed\package\</code></pre>
           <p>To publish a single self-contained executable, with no .NET runtime needed on the target PC:</p>
 <pre><code>dotnet publish src\vcombridge -p:PublishProfile=win-x64     # -> out\publish\vcombridge\vcombridge.exe</code></pre>
+          <p><code>build\Publish-Programs.ps1 -Thumbprint &lt;certificate thumbprint&gt;</code> publishes both the bridge and <code>vcomctl</code> this way and signs them, as CI does.</p>
           <p>Without a package, the bridge still builds and can use existing ports and com0com, but it can't create VCNS ports. Branded editions such as NovaStar Proxy build the same way from their own repositories, with virtual-com as a submodule.</p>
         </section>
 
@@ -177,26 +179,35 @@ dotnet test tests\Vcns.VirtualCom.Bridge.Tests</code></pre>
           <p>The GitHub Actions workflow, <code>.github/workflows/build.yml</code>, runs on a hosted Windows Server 2025 runner for every pull request and every push to <code>main</code>. A pull request that changes only the website or Markdown files skips the Windows build but still reports its <em>Build and test</em> check, so the check can be required; pushes of such changes to <code>main</code> don't start it. It:</p>
           <ol class='steps'>
             <li>restores the NuGet kits, cached between runs;</li>
-            <li>builds the driver, checks the package against Microsoft's signing rules (<code>build\Test-Package.ps1</code>) and test-signs it;</li>
+            <li>builds the driver, versioned with the run number, checks the package against Microsoft's signing rules (<code>build\Test-Package.ps1</code>) and signs it;</li>
             <li>builds the library, tool, bridge and tests, with the signed package embedded;</li>
-            <li>trusts the test certificate on the runner;</li>
+            <li>trusts the signing certificate on the runner;</li>
             <li>installs the driver, creates COM20, and runs the driver and bridge test suites.</li>
           </ol>
-          <p>Pushes to <code>main</code> also publish the bridge and <code>vcomctl</code> as single executables and upload two artefacts, each with <code>vcom-test-signing.cer</code> next to its files: <em>driver-package-test-signed</em>, with the package and <code>vcomctl.exe</code>, and <em>vcombridge-test-build</em>. Pull requests upload nothing, so only take test builds from runs on <code>main</code>. When the build, install or tests fail, the install log and <code>setupapi.dev.log</code> are uploaded as <em>install-logs</em>.</p>
-          <p>Because the runner is a throwaway virtual machine, trusting the test certificate there carries no risk.</p>
+          <p>Pushes to <code>main</code> also publish the bridge and <code>vcomctl</code> as signed single executables and upload three artefacts: <em>driver-package-test-signed</em>, with the package and <code>vcomctl.exe</code>; <em>vcombridge-test-build</em>; and <em>driver-symbols</em>, the driver's PDB for reading crash dumps. The first two have <code>vcom-test-signing.cer</code> next to their files. Pull requests upload nothing, so only take test builds from runs on <code>main</code>. When the build, install or tests fail, the install log and <code>setupapi.dev.log</code> are uploaded as <em>install-logs</em>.</p>
+          <p>Because the runner is a throwaway virtual machine, trusting the certificate there carries no risk.</p>
           <p>Signing certificates are kept in two GitHub environments rather than in the repository's secrets:</p>
           <ul>
-            <li><strong>Development</strong> holds the test certificate. Only <code>main</code> can use it, so a pull request can't reach the key, even by changing the workflow. Every build from <code>main</code> is signed with it, so a PC that trusts it once can install later test builds too. The signatures are time-stamped, so they stay valid after the certificate expires. Pull requests are signed with a throwaway certificate instead.</li>
-            <li><strong>Production</strong> is for release signing. Only <code>main</code> and <code>v*</code> tags can use it, and each use needs a maintainer's approval. It holds nothing until releases are signed by VCNS Tech Ltd.</li>
+            <li><strong>Development</strong> holds the CI test certificate. Only <code>main</code> can use it, so a pull request can't reach the key, even by changing the workflow. Every build from <code>main</code> is signed with it, so a PC that trusts it once can install later test builds too. The signatures are time-stamped, so they stay valid after the certificate expires. Pull requests are signed with a throwaway certificate instead.</li>
+            <li><strong>Production</strong> holds the release certificate. Only <code>main</code> and <code>v*</code> tags can use it, and each use needs a maintainer's approval. Until VCNS Tech Ltd has a publicly trusted certificate, it holds a copy of the CI test certificate, so releases are test-signed.</li>
           </ul>
-          <p>Give CI a certificate of its own rather than your <a href='#signing'>development certificate</a>: its key lives in GitHub, so it shouldn't be one your PCs already trust for your own builds. This creates one that lasts five years, stores it in the Development environment, and deletes the local copy of the key:</p>
-<pre><code>$cert = New-SelfSignedCertificate -Type CodeSigningCert -Subject 'CN=VCNS Virtual COM (CI test signing)' `
-  -CertStoreLocation Cert:\CurrentUser\My -NotAfter (Get-Date).AddYears(5)
-$password = [guid]::NewGuid().ToString('N')
-gh secret set VCOM_TEST_SIGNING_PFX --env Development --body ([Convert]::ToBase64String($cert.Export('Pfx', $password)))
-gh secret set VCOM_TEST_SIGNING_PASSWORD --env Development --body $password
-Remove-Item $cert.PSPath -DeleteKey</code></pre>
-          <p>Until it's there, builds from <code>main</code> are signed with a throwaway certificate, and the run shows a warning. Runs also warn 60 days before the certificate expires; repeat these steps to replace it.</p>
+          <p>CI has a certificate of its own rather than your <a href='#signing'>development certificate</a>: its key lives in GitHub, so it shouldn't be one your PCs already trust for your own builds. A repository admin sets up both environments, a five-year CI certificate and private vulnerability reporting with:</p>
+<pre><code>scripts\Set-GitHubEnvironments.ps1                      # PowerShell 7, with gh logged in</code></pre>
+          <p>The key never touches the disk, and the local copy is deleted once GitHub has it. Until the script has been run, builds from <code>main</code> are signed with a throwaway certificate and the run shows a warning, and releases fail. Runs also warn 60 days before the certificate expires; run the script again to replace it.</p>
+        </section>
+
+        <section id='releases' class='section'>
+          <p class='section-label'>Releases</p>
+          <h2>Make a release.</h2>
+          <ol class='steps'>
+            <li>Set the version in <code>VersionPrefix</code> in <code>Directory.Build.props</code>, through a pull request like any other change.</li>
+            <li>Once it's merged, tag the merge commit and push the tag: <code>git tag v1.2.3 &lt;commit&gt;</code> then <code>git push origin v1.2.3</code>.</li>
+            <li>The workflow's <em>Build, test and draft the release</em> job waits for a maintainer to approve it, under the Production environment.</li>
+            <li>It checks that the tag matches the version and is on <code>main</code>, then builds, tests and signs exactly as for <code>main</code>, with the Production certificate, and creates a <strong>draft</strong> GitHub release.</li>
+            <li>Read the draft and choose <strong>Publish release</strong>. Nothing is public until then.</li>
+          </ol>
+          <p>The release has <code>vcombridge.exe</code>, <code>vcomctl.exe</code>, the driver package and the driver's symbols as zip files, and <code>SHA256SUMS.txt</code>. If it's test-signed, it also has <code>vcom-test-signing.cer</code>, and its notes say how to trust it. The notes then list the pull requests merged since the last release.</p>
+          <p>The programs are self-contained, so each release carries the .NET runtime it was built with. Make a new release after a .NET security update. Dependabot opens pull requests for the workflow's actions weekly and for NuGet packages monthly.</p>
         </section>
 
         <section id='contributing' class='section'>

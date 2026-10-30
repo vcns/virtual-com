@@ -65,18 +65,19 @@
         <section id='get' class='section'>
           <p class='section-label'>Step 1</p>
           <h2>Get the files.</h2>
-          <p>Signed releases will be published on the <a href='https://github.com/vcns/virtual-com/releases'>releases page</a>. Until the first one is out, build the package yourself (see <a href='building.html'>Build &amp; sign</a>), or use a test build supplied by VCNS.</p>
+          <p>Download the latest release from the <a href='https://github.com/vcns/virtual-com/releases'>releases page</a>: <code>vcomctl.exe</code> and the driver package zip, which you unzip next to it. <code>SHA256SUMS.txt</code> lets you check the downloads. You can also build the package yourself (see <a href='building.html'>Build &amp; sign</a>).</p>
+          <p>Until VCNS Tech Ltd's publicly trusted certificate is in place, releases are signed with the project's test certificate and include it as <code>vcom-test-signing.cer</code>, so take step 2 first.</p>
           <p>Applications built on virtual-com usually carry the driver package and install it themselves. In that case, follow that application's guide instead of this one.</p>
         </section>
 
         <section id='test-certificate' class='section'>
-          <p class='section-label'>Step 2 · test builds only</p>
+          <p class='section-label'>Step 2 · test-signed builds only</p>
           <h2>Trust the test certificate.</h2>
           <div class='warning-callout'>
-            <h3>Only for test builds</h3>
-            <p>Production releases will be signed by VCNS Tech Ltd with a publicly trusted certificate, and this step won't be needed. Trusting a test certificate lets anything signed with it install on this PC, so do this only on machines you're evaluating on, and undo it afterwards.</p>
+            <h3>Only for test-signed builds</h3>
+            <p>Once releases are signed by VCNS Tech Ltd with a publicly trusted certificate, this step won't be needed: instead, Windows asks an administrator to confirm the publisher the first time. Trusting a test certificate lets anything signed with it install on this PC, so do it only on PCs you manage, and <a href='#uninstall'>remove it</a> when you no longer need it.</p>
           </div>
-          <p>Test builds come with <code>vcom-test-signing.cer</code>. In an <strong>administrator</strong> PowerShell window, run:</p>
+          <p>Test-signed releases and test builds come with <code>vcom-test-signing.cer</code>. In an <strong>administrator</strong> PowerShell window, run:</p>
 <pre><code>Import-Certificate -FilePath .\vcom-test-signing.cer -CertStoreLocation Cert:\LocalMachine\Root
 Import-Certificate -FilePath .\vcom-test-signing.cer -CertStoreLocation Cert:\LocalMachine\TrustedPublisher</code></pre>
           <p>The first store makes Windows trust the certificate. The second stops Windows asking "Would you like to install this device software?" every time.</p>

@@ -1,26 +1,28 @@
 name: build
 
 # Pull requests always run, so the "Build and test" check always reports; for a change to documentation alone, the
-# Windows job is skipped, which counts as passing. Pushes to main skip documentation-only changes entirely.
+# Windows job is skipped, which counts as passing. Pushes to main skip documentation-only changes entirely. A v* tag
+# builds a release (path filters don't apply to tags).
 on:
   push:
     branches: [main]
+    tags: ['v*']
     paths-ignore: ['gh-pages/**', '**.md', LICENSE, NOTICE]
   pull_request:
 
 permissions:
   contents: read
 
-# A newer push to a pull request cancels its run in progress. Each run on main is its own group, so every commit there
+# A newer push to a pull request cancels its run in progress. Each other run is its own group, so every commit on main
 # gets its test build.
 concurrency:
   group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
   cancel-in-progress: true
 
-# Both build jobs run the same steps (.github/actions/build-and-test). Pull requests, which may come from forks, get a
-# throwaway certificate and upload only logs, so nobody is asked to trust anything they built. Pushes to main use the
-# Development environment, which only main can use: its certificate signs every test build, so a PC that trusts it
-# once can install later ones too.
+# All three build jobs run the same steps (.github/actions/build-and-test). Pull requests, which may come from forks,
+# get a throwaway certificate and upload only logs, so nobody is asked to trust anything they built. Pushes to main use
+# the Development environment, which only main can use: its certificate signs every test build, so a PC that trusts it
+# once can install later ones too. Tags use the Production environment, which needs a maintainer's approval.
 jobs:
   changes:
     name: Find what changed
@@ -29,7 +31,7 @@ jobs:
     outputs:
       code: ${{ steps.diff.outputs.code }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
 
@@ -51,33 +53,33 @@ jobs:
     runs-on: windows-2025
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - uses: ./.github/actions/build-and-test
 
   main:
     name: Build, test and upload test builds
-    if: github.event_name == 'push'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: windows-2025
     timeout-minutes: 30
     environment: Development
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: ./.github/actions/build-and-test
+      - id: build
+        uses: ./.github/actions/build-and-test
         with:
           signing-pfx: ${{ secrets.VCOM_TEST_SIGNING_PFX }}
           signing-password: ${{ secrets.VCOM_TEST_SIGNING_PASSWORD }}
 
-      - name: Publish the bridge (test-signed driver embedded)
-        run: dotnet publish src\vcombridge -p:PublishProfile=win-x64
-
-      - name: Publish vcomctl
-        run: dotnet publish src\vcomctl -p:PublishProfile=win-x64
+      - name: Publish and sign the bridge and vcomctl
+        env:
+          THUMBPRINT: ${{ steps.build.outputs.thumbprint }}
+          TIMESTAMP_URL: ${{ steps.build.outputs.timestamp-url }}
+        run: build\Publish-Programs.ps1 -Thumbprint $env:THUMBPRINT -TimestampUrl $env:TIMESTAMP_URL
 
       # Each artefact carries the certificate next to its files, as the user guide expects.
       - name: Collect the test builds
-        shell: pwsh
         run: |
           $driver = New-Item -ItemType Directory out\artifacts\driver-package -Force
           Copy-Item out\Release\package\vcnsvcom.*, out\publish\vcomctl\vcomctl.exe, out\test-signing\vcom-test-signing.cer $driver
@@ -85,15 +87,109 @@ jobs:
           Copy-Item out\publish\vcombridge\vcombridge.exe, out\test-signing\vcom-test-signing.cer $bridge
 
       - name: Upload test-signed driver package
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: driver-package-test-signed
           path: out/artifacts/driver-package/
           if-no-files-found: error
 
       - name: Upload test build of the bridge
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: vcombridge-test-build
           path: out/artifacts/vcombridge/
           if-no-files-found: error
+
+      # For reading crash dumps from a test build; Microsoft's driver submission also asks for them.
+      - name: Upload driver symbols
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: driver-symbols
+          path: out/Release/vcnsvcom.pdb
+          if-no-files-found: error
+
+  release:
+    name: Build, test and draft the release
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    runs-on: windows-2025
+    timeout-minutes: 30
+    environment: Production
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      # A release is built from main, at the version Directory.Build.props states.
+      - name: Check the tag
+        id: version
+        run: |
+          [xml]$props = Get-Content Directory.Build.props
+          $version = $props.SelectSingleNode('/Project/PropertyGroup/VersionPrefix').InnerText
+          if ($env:GITHUB_REF_NAME -ne "v$version") {
+            throw "The tag is $env:GITHUB_REF_NAME, but Directory.Build.props says version $version. Tag v$version, or change the version first."
+          }
+          git merge-base --is-ancestor $env:GITHUB_SHA origin/main
+          if ($LASTEXITCODE -ne 0) { throw "$env:GITHUB_REF_NAME isn't on main." }
+          "version=$version" >> $env:GITHUB_OUTPUT
+
+      - id: build
+        uses: ./.github/actions/build-and-test
+        with:
+          signing-pfx: ${{ secrets.VCOM_RELEASE_SIGNING_PFX }}
+          signing-password: ${{ secrets.VCOM_RELEASE_SIGNING_PASSWORD }}
+          require-certificate: 'true'
+
+      - name: Publish and sign the bridge and vcomctl
+        env:
+          THUMBPRINT: ${{ steps.build.outputs.thumbprint }}
+          TIMESTAMP_URL: ${{ steps.build.outputs.timestamp-url }}
+        run: build\Publish-Programs.ps1 -Thumbprint $env:THUMBPRINT -TimestampUrl $env:TIMESTAMP_URL
+
+      - name: Collect the release files
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          SELF_SIGNED: ${{ steps.build.outputs.self-signed }}
+        run: |
+          $assets = New-Item -ItemType Directory out\github-release -Force
+          Copy-Item out\publish\vcombridge\vcombridge.exe, out\publish\vcomctl\vcomctl.exe $assets
+          Compress-Archive out\Release\package\vcnsvcom.inf, out\Release\package\vcnsvcom.dll, out\Release\package\vcnsvcom.cat `
+            "$assets\vcnsvcom-driver-package-$env:VERSION.zip"
+          Compress-Archive out\Release\vcnsvcom.pdb "$assets\vcnsvcom-symbols-$env:VERSION.zip"
+          if ($env:SELF_SIGNED -eq 'true') { Copy-Item out\test-signing\vcom-test-signing.cer $assets }
+          $sums = Get-ChildItem $assets -File | Sort-Object Name | ForEach-Object {
+            '{0} *{1}' -f (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant(), $_.Name
+          }
+          $sums | Set-Content "$assets\SHA256SUMS.txt" -Encoding ascii
+
+      # A draft, so nothing is public until a maintainer has looked at it and pressed Publish. Re-running the job
+      # replaces its own draft, never a published release.
+      - name: Draft the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+          SELF_SIGNED: ${{ steps.build.outputs.self-signed }}
+        run: |
+          $tag = $env:GITHUB_REF_NAME
+          $notes = @(
+            "VCNS Virtual COM $env:VERSION, build $env:GITHUB_RUN_NUMBER (driver version $env:VERSION.$env:GITHUB_RUN_NUMBER)."
+            ''
+            '- `vcombridge.exe`: VCNS Virtual COM Bridge, with the driver built in.'
+            '- `vcomctl.exe` and `vcnsvcom-driver-package-*.zip`: the command-line tool and the driver package, to install and manage ports yourself.'
+            '- `vcnsvcom-symbols-*.zip`: debugging symbols for the driver.'
+            '- `SHA256SUMS.txt`: checksums of the files above.'
+          )
+          if ($env:SELF_SIGNED -eq 'true') {
+            $notes += ''
+            $notes += '> [!IMPORTANT]'
+            $notes += '> This release is signed with the project''s own certificate, `vcom-test-signing.cer`, not yet with a publicly trusted one. Windows installs the driver only on PCs told to trust it: see [Trust the test certificate](https://vcns.github.io/virtual-com/user-guide.html#test-certificate).'
+          }
+          $notes | Set-Content out\release-notes.md -Encoding utf8
+
+          $draft = gh release view $tag --json isDraft --jq .isDraft 2>$null
+          if ($draft -eq 'false') { throw "Release $tag is already published." }
+          if ($draft -eq 'true') { gh release delete $tag --yes }
+          gh release create $tag (Get-ChildItem out\github-release -File).FullName --draft --verify-tag `
+            --title "VCNS Virtual COM $env:VERSION" --notes-file out\release-notes.md --generate-notes
+          if ($LASTEXITCODE -ne 0) { throw 'Creating the draft release failed.' }

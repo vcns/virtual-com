@@ -84,7 +84,7 @@
             </article>
             <article class='faq-item'>
               <h3>Is it ready for production?</h3>
-              <p>Not yet. It passes its behaviour test suite, but releases aren't yet signed with a publicly trusted certificate, and it hasn't been widely tested with third-party applications. Treat current builds as previews.</p>
+              <p>Version 1.0 is a stable release. Every change is built and runs the full behaviour test suite against a real installed port before it's merged, and releases are built and tested the same way. One thing is still missing: a publicly trusted signature. Releases are signed with the project's test certificate, which each PC must be told to trust. Until VCNS Tech Ltd's certificate is in place, use it on PCs you manage, where trusting that certificate is acceptable. It also hasn't yet been widely tested with third-party applications, so try it with yours first.</p>
             </article>
             <article class='faq-item' id='commercial'>
               <h3>Can I use it commercially, or ship it with my product?</h3>
@@ -189,7 +189,7 @@
             </article>
             <article class='faq-item' id='code-52'>
               <h3>Why does Windows show Code 52, or "can't verify the digital signature"?</h3>
-              <p>Windows doesn't trust the certificate the package was signed with. Current builds are signed with a test certificate. Import it into the machine's Trusted Root and Trusted Publishers stores, as the <a href='user-guide.html#test-certificate'>user guide</a> explains, or wait for a production-signed release.</p>
+              <p>Windows doesn't trust the certificate the package was signed with. Releases and test builds are currently signed with the project's test certificate. Import it into the machine's Trusted Root and Trusted Publishers stores, as the <a href='user-guide.html#test-certificate'>user guide</a> explains, or wait for a release signed by VCNS Tech Ltd.</p>
             </article>
             <article class='faq-item'>
               <h3>Do I need administrator rights?</h3>
