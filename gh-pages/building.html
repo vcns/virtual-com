@@ -191,9 +191,10 @@ dotnet test tests\Vcns.VirtualCom.Bridge.Tests</code></pre>
             <li><strong>Development</strong> holds the CI test certificate. Only <code>main</code> can use it, so a pull request can't reach the key, even by changing the workflow. Every build from <code>main</code> is signed with it, so a PC that trusts it once can install later test builds too. The signatures are time-stamped, so they stay valid after the certificate expires. Pull requests are signed with a throwaway certificate instead.</li>
             <li><strong>Production</strong> holds the release certificate. Only <code>main</code> and <code>v*</code> tags can use it, and each use needs a maintainer's approval. Until VCNS Tech Ltd has a publicly trusted certificate, it holds a copy of the CI test certificate, so releases are test-signed.</li>
           </ul>
-          <p>CI has a certificate of its own rather than your <a href='#signing'>development certificate</a>: its key lives in GitHub, so it shouldn't be one your PCs already trust for your own builds. A repository admin sets up both environments, a five-year CI certificate and private vulnerability reporting with:</p>
+          <p>CI has a certificate of its own rather than your <a href='#signing'>development certificate</a>: its key lives in GitHub, so it shouldn't be one your PCs already trust for your own builds. A repository admin sets up both environments, a five-year CI certificate, private vulnerability reporting, <a href='#releases'>immutable releases</a> and the rules for <code>main</code> with:</p>
 <pre><code>scripts\Set-GitHubEnvironments.ps1                      # PowerShell 7, with gh logged in</code></pre>
           <p>The key never touches the disk, and the local copy is deleted once GitHub has it. Until the script has been run, builds from <code>main</code> are signed with a throwaway certificate and the run shows a warning, and releases fail. Runs also warn 60 days before the certificate expires; run the script again to replace it.</p>
+          <p>The rules for <code>main</code>: a commit reaches it only once GitHub Actions' <em>Build and test</em> check has passed on it, so every change goes through a pull request, and its history can't be rewritten. They apply to admins too.</p>
         </section>
 
         <section id='releases' class='section'>
@@ -206,6 +207,7 @@ dotnet test tests\Vcns.VirtualCom.Bridge.Tests</code></pre>
             <li>It checks that the tag matches the version and is on <code>main</code>, then builds, tests and signs exactly as for <code>main</code>, with the Production certificate, and creates a <strong>draft</strong> GitHub release.</li>
             <li>Read the draft and choose <strong>Publish release</strong>. Nothing is public until then.</li>
           </ol>
+          <p>Releases are immutable: once published, a release's files and tag can't change, and its tag name can't be used again, even if the release is deleted. Its title and notes can still be edited. To fix a release's files, release a new version.</p>
           <p>The release has <code>vcombridge.exe</code>, <code>vcomctl.exe</code>, the driver package and the driver's symbols as zip files, and <code>SHA256SUMS.txt</code>. If it's test-signed, it also has <code>vcom-test-signing.cer</code>, and its notes say how to trust it. The notes then list the pull requests merged since the last release.</p>
           <p>The programs are self-contained, so each release carries the .NET runtime it was built with. Make a new release after a .NET security update. Dependabot opens pull requests for the workflow's actions weekly and for NuGet packages monthly.</p>
         </section>
@@ -214,7 +216,7 @@ dotnet test tests\Vcns.VirtualCom.Bridge.Tests</code></pre>
           <p class='section-label'>Contributing</p>
           <h2>Issues and pull requests.</h2>
           <p>Bug reports, compatibility reports ("application X does Y on a virtual-com port") and pull requests are welcome on <a href='https://github.com/vcns/virtual-com'>GitHub</a>. For a compatibility problem, please include the application and version, what it does on a hardware port, and what it does on the virtual one. Contributions are accepted under the project's MS-PL licence.</p>
-          <p>Please don't report security problems in a public issue. Contact VCNS Tech Ltd privately through the <a href='https://github.com/vcns'>organisation's GitHub profile</a>.</p>
+          <p>Please don't report security problems in a public issue. Report them privately from the repository's <strong>Security</strong> tab, as <a href='https://github.com/vcns/virtual-com/blob/main/SECURITY.md'>SECURITY.md</a> describes.</p>
         </section>
       </main>
     </div>

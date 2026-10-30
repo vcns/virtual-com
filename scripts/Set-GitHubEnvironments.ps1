@@ -8,6 +8,10 @@
       signing certificate. Until VCNS Tech Ltd has a publicly trusted one, that is the same CI certificate, so releases
       are test-signed and their notes say so.
     - Private vulnerability reporting, which SECURITY.md points to.
+    - Immutable releases: once a release is published, its files and tag can't change, and its tag name can't be used
+      again even if the release is deleted.
+    - A ruleset on main: a commit reaches main only once "Build and test" has passed on it, so changes go through pull
+      requests, and main's history can't be rewritten. Nobody bypasses it, admins included.
 
     The CI certificate's key exists only in GitHub: the PFX never touches the disk, and the local copy of the key is
     deleted once it's stored. Your own development certificate isn't used.
@@ -56,6 +60,33 @@ finally {
 }
 
 gh api -X PUT "repos/$Repository/private-vulnerability-reporting" | Out-Null
+gh api -X PUT "repos/$Repository/immutable-releases" | Out-Null
+
+# The check must come from GitHub Actions (app 15368), so no other app can pass it by reporting the same name. A pull
+# request needn't be up to date with main first. Blocking non-fast-forward pushes keeps every release tag on main.
+$ruleset = @{
+    name        = 'Protect main'
+    target      = 'branch'
+    enforcement = 'active'
+    conditions  = @{ ref_name = @{ include = @('~DEFAULT_BRANCH'); exclude = @() } }
+    rules       = @(
+        @{
+            type       = 'required_status_checks'
+            parameters = @{
+                required_status_checks               = @(@{ context = 'Build and test'; integration_id = 15368 })
+                strict_required_status_checks_policy = $false
+            }
+        }
+        @{ type = 'non_fast_forward' }
+    )
+} | ConvertTo-Json -Depth 10
+$rulesetId = gh api "repos/$Repository/rulesets" --jq '.[] | select(.source_type == "Repository" and .name == "Protect main") | .id'
+if ($rulesetId) {
+    $ruleset | gh api -X PUT "repos/$Repository/rulesets/$rulesetId" --input - | Out-Null
+}
+else {
+    $ruleset | gh api -X POST "repos/$Repository/rulesets" --input - | Out-Null
+}
 
 foreach ($name in 'Development', 'Production') {
     $rules = gh api "$environments/$name" --jq '[.protection_rules[].type] | join(", ")'
@@ -63,3 +94,5 @@ foreach ($name in 'Development', 'Production') {
     "${name}: $policies; rules: $(if ($rules) { $rules } else { 'none' })"
     gh secret list --repo $Repository --env $name
 }
+"Immutable releases: $(gh api "repos/$Repository/immutable-releases" --jq .enabled)"
+"main: $(gh api "repos/$Repository/rules/branches/main" --jq '[.[].type] | join(", ")')"

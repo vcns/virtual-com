@@ -183,7 +183,7 @@ Without `VCOM_TEST_PORT`, the port tests and the bridge's end-to-end tests are s
 
 ## Releases
 
-Releases are on the [releases page](https://github.com/vcns/virtual-com/releases). To make one, set `VersionPrefix` in `Directory.Build.props`, merge, then tag the merge commit `v<version>` and push the tag. Once a maintainer approves the job, CI builds, tests and signs the release and creates a draft GitHub release, which a maintainer then reads and publishes. See [Releases](https://vcns.github.io/virtual-com/building.html#releases). To report a vulnerability, see [SECURITY.md](SECURITY.md).
+Releases are on the [releases page](https://github.com/vcns/virtual-com/releases). To make one, set `VersionPrefix` in `Directory.Build.props`, merge, then tag the merge commit `v<version>` and push the tag. Once a maintainer approves the job, CI builds, tests and signs the release and creates a draft GitHub release, which a maintainer then reads and publishes. Once published, a release's files and tag can't change. See [Releases](https://vcns.github.io/virtual-com/building.html#releases). To report a vulnerability, see [SECURITY.md](SECURITY.md).
 
 ## Limitations
 
