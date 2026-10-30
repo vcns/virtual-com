@@ -11,7 +11,6 @@
     <ApplicationIcon>Assets\vcombridge.ico</ApplicationIcon>
     <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
 
-    <Version>1.0.0</Version>
     <Product>VCNS Virtual COM Bridge</Product>
     <Description>Bridges virtual COM ports to TCP</Description>
     <Company>VCNS Tech Ltd</Company>

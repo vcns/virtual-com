@@ -1,7 +1,7 @@
 #include <winver.h>
 
-#define VCOM_VERSION        1,0,0,0
-#define VCOM_VERSION_STR    "1.0.0.0"
+/* VCOM_VERSION and VCOM_VERSION_STR, written by the build from the package version (vcnsvcom.vcxproj). */
+#include "version.h"
 
 VS_VERSION_INFO VERSIONINFO
 FILEVERSION     VCOM_VERSION

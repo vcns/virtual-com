@@ -13,4 +13,17 @@
     <SdkBin>$(SdkRoot)bin\$(WdkSdkVersion)\x64\</SdkBin>
     <WdkBin>$(WdkRoot)bin\$(WdkSdkVersion)\</WdkBin>
   </PropertyGroup>
+
+  <!--
+    The release version, shared by the driver and every program; a release is tagged v<VersionPrefix>. Builds add a
+    fourth part, the CI run number (0 for a local build), so each CI build of the driver has a higher version than the
+    one before and Windows takes it as an upgrade.
+  -->
+  <PropertyGroup>
+    <VersionPrefix>1.0.0</VersionPrefix>
+    <BuildNumber Condition="'$(BuildNumber)' == ''">$(GITHUB_RUN_NUMBER)</BuildNumber>
+    <BuildNumber Condition="'$(BuildNumber)' == ''">0</BuildNumber>
+    <FileVersion>$(VersionPrefix).$(BuildNumber)</FileVersion>
+    <AssemblyVersion>$(VersionPrefix).$(BuildNumber)</AssemblyVersion>
+  </PropertyGroup>
 </Project>

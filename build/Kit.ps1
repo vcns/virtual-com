@@ -5,8 +5,8 @@
 #>
 $root = Split-Path $PSScriptRoot -Parent
 [xml]$props = Get-Content "$root\Directory.Build.props"
-$version = $props.Project.PropertyGroup.WdkNuGetVersion
-$kit = $props.Project.PropertyGroup.WdkSdkVersion
+$version = $props.SelectSingleNode('/Project/PropertyGroup/WdkNuGetVersion').InnerText
+$kit = $props.SelectSingleNode('/Project/PropertyGroup/WdkSdkVersion').InnerText
 $sdk = "$root\packages\Microsoft.Windows.SDK.CPP.$version\c"
 $wdk = "$root\packages\Microsoft.Windows.WDK.x64.$version\c"
 

@@ -85,7 +85,7 @@ dotnet build VirtualCom.slnx -c Release</code></pre>
             <li><code>vcnsvcom.inf</code>, stamped with date, version and UMDF version;</li>
             <li><code>vcnsvcom.cat</code>, the catalog, still unsigned at this point.</li>
           </ul>
-          <p>Set the package version with <code>-p:DriverVersion=1.2.3.4</code>.</p>
+          <p>The version comes from <code>VersionPrefix</code> in <code>Directory.Build.props</code>, plus a fourth part: CI's run number, or 0 for a local build. So a local build of 1.0.0 is 1.0.0.0, and each CI build is higher than the one before, which Windows takes as an upgrade. The DLL, the INF and the programs all carry it. Override it with <code>-p:BuildNumber=…</code>, or set the package version outright with <code>-p:DriverVersion=1.2.3.4</code>.</p>
           <div class='callout'>
             <h3>Why not the WDK's own project type?</h3>
             <p>Microsoft's driver project templates need full Visual Studio with the WDK extension. A user-mode driver is an ordinary DLL linked against the WDF stub library, so <code>build/Umdf.props</code> builds it with the standard v143 toolset and the defines the WDK applies. The only dependencies are Build Tools and the NuGet kits.</p>

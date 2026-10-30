@@ -138,6 +138,8 @@ dotnet build VirtualCom.slnx
 
 The package in `out\Release\package` contains `vcnsvcom.dll`, `vcnsvcom.inf` and an unsigned `vcnsvcom.cat`.
 
+The version is `VersionPrefix` in `Directory.Build.props`, plus a fourth part: CI's run number, or 0 for a local build. The driver package, the DLL and the programs all carry it.
+
 Once the package is signed (below), the bridge embeds it. To publish the bridge as a single self-contained executable in `out\publish\vcombridge`:
 
 ```powershell
