@@ -20,7 +20,7 @@
 
   <ItemGroup>
     <!-- Server mode runs as a Windows service. -->
-    <PackageReference Include="System.ServiceProcess.ServiceController" Version="10.0.0" />
+    <PackageReference Include="System.ServiceProcess.ServiceController" Version="10.0.14" />
   </ItemGroup>
 
   <!--
