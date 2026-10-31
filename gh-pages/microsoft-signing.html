@@ -171,9 +171,9 @@
                 <tr><th scope='row'>INF meets the Windows Driver and declarative rules (<code>InfVerif /w</code>, <code>/k</code>)</th><td class='check-yes'>Done</td></tr>
                 <tr><th scope='row'>Driver calls only APIs allowed in a Windows Driver (ApiValidator)</th><td class='check-yes'>Done, checked in CI</td></tr>
                 <tr><th scope='row'>Driver runs from the driver store, with <code>PnpLockdown</code> set</th><td class='check-yes'>Done</td></tr>
-                <tr><th scope='row'>A higher driver version for each release, set automatically (1.0.0.0 today, set by hand)</th><td class='check-no'>To do</td></tr>
+                <tr><th scope='row'>A higher driver version for each build, set automatically</th><td class='check-yes'>Done: the CI run number is the fourth part</td></tr>
                 <tr><th scope='row'>An ARM64 build</th><td class='check-no'>To do</td></tr>
-                <tr><th scope='row'>Symbols (PDB files) kept with every build, for submission</th><td class='check-no'>To do</td></tr>
+                <tr><th scope='row'>Symbols (PDB files) kept with every build, for submission</th><td class='check-yes'>Done: with each build from <code>main</code> and each release</td></tr>
                 <tr><th scope='row'>A software bill of materials (SBOM), which Microsoft has announced for driver submissions from the Windows release in 2027</th><td>Later</td></tr>
               </tbody>
             </table>

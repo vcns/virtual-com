@@ -16,7 +16,7 @@ Bytes written to one end are read from the other, unchanged. The COM end behaves
 
 The repository also contains a ready-made host application, the **VCNS Virtual COM Bridge**, which connects virtual COM ports to TCP devices (see [Bridge applications](#bridge-applications)).
 
-> **Status: early development.** It passes its test suite on Windows 11 25H2 with Secure Boot on. It has not yet been released with a production signature: see [Signing](#signing).
+> **Status: version 1.0.** It passes its test suite on Windows 11 25H2 with Secure Boot on, and every change is tested in CI. Releases are signed with the project's test certificate until VCNS Tech Ltd's publicly trusted one is in place: see [Signing](#signing).
 
 **Documentation:** <https://vcns.github.io/virtual-com/>: use cases, user and developer guides, reference, building and FAQ. The site's source is in [gh-pages/](gh-pages/).
 
@@ -138,11 +138,15 @@ dotnet build VirtualCom.slnx
 
 The package in `out\Release\package` contains `vcnsvcom.dll`, `vcnsvcom.inf` and an unsigned `vcnsvcom.cat`.
 
+The version is `VersionPrefix` in `Directory.Build.props`, plus a fourth part: CI's run number, or 0 for a local build. The driver package, the DLL and the programs all carry it.
+
 Once the package is signed (below), the bridge embeds it. To publish the bridge as a single self-contained executable in `out\publish\vcombridge`:
 
 ```powershell
 dotnet publish src\vcombridge -p:PublishProfile=win-x64
 ```
+
+`build\Publish-Programs.ps1 -Thumbprint <thumbprint>` publishes the bridge and `vcomctl` this way and signs them.
 
 ## Signing
 
@@ -154,7 +158,7 @@ build\Sign-Package.ps1 -Thumbprint <code-signing certificate thumbprint>
 
 This signs the DLL, regenerates the catalog to cover the signed DLL, and signs the catalog.
 
-Release builds will be signed by **VCNS Tech Ltd**. Until then, development uses a self-signed certificate. Microsoft signing, which ARM64, S mode and Windows Update need, is planned in stages: see [Microsoft signing](https://vcns.github.io/virtual-com/microsoft-signing.html). `build\Test-Package.ps1` checks the package against Microsoft's pre-signing rules, and CI runs it on every build.
+Releases are signed in CI with the certificate in the Production environment: for now a copy of the CI test certificate, later a publicly trusted **VCNS Tech Ltd** certificate. With that, nothing needs importing, but Windows still asks an administrator to confirm the publisher the first time; only Microsoft's signature avoids that prompt. Microsoft signing, which ARM64, S mode and Windows Update need, is planned in stages: see [Microsoft signing](https://vcns.github.io/virtual-com/microsoft-signing.html). `build\Test-Package.ps1` checks the package against Microsoft's pre-signing rules, and CI runs it on every build.
 
 ### Development install (test certificate)
 
@@ -175,7 +179,11 @@ dotnet test tests\Vcns.VirtualCom.Tests
 dotnet test tests\Vcns.VirtualCom.Bridge.Tests
 ```
 
-Without `VCOM_TEST_PORT`, the port tests and the bridge's end-to-end tests are skipped. On every pull request and push to `main`, the CI workflow (`.github/workflows/build.yml`) builds and test-signs the driver, installs it on a GitHub-hosted Windows runner and runs both suites. Pushes to `main` also upload test builds of the driver package and the bridge, each with the certificate to trust. The certificate those builds are signed with, and how to set it up, are described under [Continuous integration](https://vcns.github.io/virtual-com/building.html#ci).
+Without `VCOM_TEST_PORT`, the port tests and the bridge's end-to-end tests are skipped. On every pull request and push to `main`, the CI workflow (`.github/workflows/build.yml`) builds and test-signs the driver, installs it on a GitHub-hosted Windows runner and runs both suites. Pushes to `main` also upload test builds of the driver package and the bridge, each with the certificate to trust, and the driver's symbols. The certificate those builds are signed with, and how to set it up (`scripts\Set-GitHubEnvironments.ps1`), are described under [Continuous integration](https://vcns.github.io/virtual-com/building.html#ci).
+
+## Releases
+
+Releases are on the [releases page](https://github.com/vcns/virtual-com/releases). To make one, set `VersionPrefix` in `Directory.Build.props`, merge, then tag the merge commit `v<version>` and push the tag. Once a maintainer approves the job, CI builds, tests and signs the release and creates a draft GitHub release, which a maintainer then reads and publishes. Once published, a release's files and tag can't change. See [Releases](https://vcns.github.io/virtual-com/building.html#releases). To report a vulnerability, see [SECURITY.md](SECURITY.md).
 
 ## Limitations
 

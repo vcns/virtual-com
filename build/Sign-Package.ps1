@@ -16,23 +16,14 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
-$kit = & "$PSScriptRoot\Kit.ps1"
-$signtool = $kit.SignTool
-$inf2cat = $kit.Inf2Cat
+$inf2cat = (& "$PSScriptRoot\Kit.ps1").Inf2Cat
 $package = "$root\out\$Configuration\package"
 
-function Sign([string] $file) {
-    $arguments = @('sign', '/fd', 'sha256', '/sha1', $Thumbprint)
-    if ($TimestampUrl) { $arguments += @('/tr', $TimestampUrl, '/td', 'sha256') }
-    & $signtool @arguments $file
-    if ($LASTEXITCODE -ne 0) { throw "Signing $file failed." }
-}
-
-Sign "$package\vcnsvcom.dll"
+& "$PSScriptRoot\Sign-Files.ps1" "$package\vcnsvcom.dll" -Thumbprint $Thumbprint -TimestampUrl $TimestampUrl
 Remove-Item "$package\vcnsvcom.cat" -ErrorAction SilentlyContinue
 & $inf2cat /driver:$package /os:10_RS5_X64 /uselocaltime
 if ($LASTEXITCODE -ne 0) { throw 'Catalog generation failed.' }
-Sign "$package\vcnsvcom.cat"
+& "$PSScriptRoot\Sign-Files.ps1" "$package\vcnsvcom.cat" -Thumbprint $Thumbprint -TimestampUrl $TimestampUrl
 
 # Informational: a test certificate shows as untrusted until it is added to the machine's trusted stores.
 Get-AuthenticodeSignature "$package\vcnsvcom.dll", "$package\vcnsvcom.cat" |

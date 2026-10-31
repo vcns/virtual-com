@@ -1,24 +1,38 @@
 name: Build and test
 description: >-
-  Builds and test-signs the driver package, builds the .NET projects with it embedded, installs the driver on COM20
-  and runs both test suites. If anything fails, uploads the install logs.
+  Builds and signs the driver package, builds the .NET projects with it embedded, installs the driver on COM20 and
+  runs both test suites. If anything fails, uploads the install logs.
 
 inputs:
   signing-pfx:
-    description: Base64 of a PFX holding the test-signing certificate. Without it, a throwaway certificate is used.
+    description: Base64 of a PFX holding the signing certificate. Without it, a throwaway certificate is used.
     default: ''
   signing-password:
     description: The PFX's password.
     default: ''
+  require-certificate:
+    description: "'true' to fail without signing-pfx instead of using a throwaway certificate."
+    default: 'false'
+
+outputs:
+  thumbprint:
+    description: The signing certificate's thumbprint, in the current user's store for the rest of the job.
+    value: ${{ steps.sign.outputs.thumbprint }}
+  timestamp-url:
+    description: The time-stamping service used, or '' for none.
+    value: ${{ steps.sign.outputs.timestamp-url }}
+  self-signed:
+    description: "'true' if the certificate is self-signed, so PCs must be told to trust it."
+    value: ${{ steps.sign.outputs.self-signed }}
 
 runs:
   using: composite
   steps:
-    - uses: actions/setup-dotnet@v4
+    - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
       with:
         dotnet-version: 10.0.x
 
-    - uses: microsoft/setup-msbuild@v2
+    - uses: microsoft/setup-msbuild@30375c66a4eea26614e0d39710365f22f8b0af57 # v3
 
     # The driver is built with the v143 toolset (14.44) and Spectre mitigation. The windows-2025 image has Visual
     # Studio 2026, which includes that toolset but only v145's Spectre-mitigated libraries.
@@ -37,13 +51,13 @@ runs:
         }
 
     - name: Cache the Windows SDK and WDK
-      uses: actions/cache@v4
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: packages
         key: kits-${{ hashFiles('packages.config') }}
 
     - name: Cache .NET packages
-      uses: actions/cache@v4
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: ~/.nuget/packages
         key: nuget-${{ hashFiles('src/**/*.csproj', 'src/**/*.pubxml', 'tests/**/*.csproj') }}
@@ -53,6 +67,7 @@ runs:
       shell: pwsh
       run: nuget restore packages.config -PackagesDirectory packages
 
+    # The fourth part of every version is the run number (GITHUB_RUN_NUMBER; see Directory.Build.props).
     - name: Build driver package
       shell: pwsh
       run: msbuild driver\vcnsvcom.vcxproj -p:Configuration=Release -p:Platform=x64 -nologo -v:minimal
@@ -63,17 +78,19 @@ runs:
       run: build\Test-Package.ps1
 
     # Signed before the .NET build, because the bridge embeds whatever package is in out\Release\package. Signatures
-    # with a supplied certificate are time-stamped, so test builds outlive it. The throwaway certificate is for pull
+    # with a supplied certificate are time-stamped, so builds outlive it. The throwaway certificate is for pull
     # requests, whose builds aren't uploaded, so it skips the time stamp.
-    - name: Test-sign the driver package
+    - name: Sign the driver package
+      id: sign
       shell: pwsh
       env:
         SIGNING_PFX: ${{ inputs.signing-pfx }}
         SIGNING_PASSWORD: ${{ inputs.signing-password }}
+        REQUIRE_CERTIFICATE: ${{ inputs.require-certificate }}
       run: |
         if ($env:SIGNING_PFX) {
           if (-not $env:SIGNING_PASSWORD) { throw 'signing-pfx was given without signing-password.' }
-          $pfx = Join-Path $env:RUNNER_TEMP test-signing.pfx
+          $pfx = Join-Path $env:RUNNER_TEMP signing.pfx
           try {
             [IO.File]::WriteAllBytes($pfx, [Convert]::FromBase64String($env:SIGNING_PFX))
             $password = ConvertTo-SecureString $env:SIGNING_PASSWORD -AsPlainText -Force
@@ -86,10 +103,11 @@ runs:
           }
           if (-not $cert) { throw 'The PFX holds no certificate with a private key.' }
           if ($cert.NotAfter -lt (Get-Date).AddDays(60)) {
-            Write-Host "::warning::The test-signing certificate expires on $($cert.NotAfter.ToString('yyyy-MM-dd')). Replace it before then, or builds from main will fail to sign."
+            Write-Host "::warning::The signing certificate expires on $($cert.NotAfter.ToString('yyyy-MM-dd')). Replace it before then, or builds will fail to sign."
           }
           $timestamp = 'http://timestamp.digicert.com'
         } else {
+          if ($env:REQUIRE_CERTIFICATE -eq 'true') { throw 'A signing certificate is required, but signing-pfx is empty.' }
           if ($env:GITHUB_EVENT_NAME -eq 'push') {
             Write-Host '::warning::The Development environment has no VCOM_TEST_SIGNING_PFX secret, so this test build is signed with a throwaway certificate.'
           }
@@ -100,6 +118,9 @@ runs:
         New-Item -ItemType Directory out\test-signing -Force | Out-Null
         Export-Certificate -Cert $cert -FilePath out\test-signing\vcom-test-signing.cer | Out-Null
         build\Sign-Package.ps1 -Thumbprint $cert.Thumbprint -TimestampUrl $timestamp
+        "thumbprint=$($cert.Thumbprint)" >> $env:GITHUB_OUTPUT
+        "timestamp-url=$timestamp" >> $env:GITHUB_OUTPUT
+        "self-signed=$(($cert.Subject -eq $cert.Issuer).ToString().ToLowerInvariant())" >> $env:GITHUB_OUTPUT
 
     - name: Build library, tool and tests
       shell: pwsh
@@ -132,7 +153,7 @@ runs:
 
     - name: Upload install logs
       if: failure()
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
       with:
         name: install-logs
         path: |

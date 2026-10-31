@@ -31,7 +31,7 @@
   <PropertyGroup>
     <OutDir>$(MSBuildThisFileDirectory)..\out\$(Configuration)\</OutDir>
     <IntDir>$(MSBuildThisFileDirectory)..\obj\$(Configuration)\</IntDir>
-    <DriverVersion Condition="'$(DriverVersion)' == ''">1.0.0.0</DriverVersion>
+    <DriverVersion Condition="'$(DriverVersion)' == ''">$(VersionPrefix).$(BuildNumber)</DriverVersion>
     <PackageDir>$(OutDir)package\</PackageDir>
   </PropertyGroup>
   <ItemDefinitionGroup>
@@ -50,6 +50,9 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <CETCompat>true</CETCompat>
     </Link>
+    <ResourceCompile>
+      <AdditionalIncludeDirectories>$(IntDir.TrimEnd('\'));%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ResourceCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="driver.c" />
@@ -72,6 +75,13 @@
     <None Include="vcom.inx" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+
+  <!-- The DLL's version resource (vcom.rc) takes the package version, so the two always agree. -->
+  <Target Name="WriteVersionHeader" BeforeTargets="ResourceCompile">
+    <MakeDir Directories="$(IntDir)" />
+    <WriteLinesToFile File="$(IntDir)version.h" Overwrite="true" WriteOnlyWhenDifferent="true"
+                      Lines="#define VCOM_VERSION $(DriverVersion.Replace('.', ','));#define VCOM_VERSION_STR &quot;$(DriverVersion)&quot;" />
+  </Target>
 
   <!-- Driver package: the DLL, the INF stamped with date/version/UMDF version, and an (unsigned) catalog. -->
   <Target Name="PackageDriver" AfterTargets="Build">
